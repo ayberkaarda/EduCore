@@ -132,6 +132,8 @@ button {
   cursor: pointer;
   transition: all 0.2s;
   font-size: 0.875rem;
+  white-space: nowrap !important; /* DÜZELTME: Buton yazılarını sabitler */
+  flex-shrink: 0; /* DÜZELTME: Butonun daralmasını engeller */
 }
 
 .btn-primary { background-color: var(--primary); color: white; }
@@ -279,6 +281,40 @@ button:disabled, .btn-disabled {
 .form-group input:focus { border-color: var(--primary); }
 .modal-actions {
   display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem;
+}
+
+/* =========================================
+   DÜZELTME: TABLO VE İKON HİZALAMALARI
+   ========================================= */
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-responsive th,
+.table-responsive td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+td > div > div:first-child {
+  flex-shrink: 0;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0 !important;
+  box-sizing: border-box;
+}
+
+select {
+  font-family: inherit;
+  font-size: 0.875rem;
+  background-color: white;
+  min-width: 150px;
 }
 
 @media (max-width: 1024px) {
