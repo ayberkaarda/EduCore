@@ -33,7 +33,7 @@ html, body, #root {
 }
 
 .sidebar {
-  width: 260px;
+  width: 280px; /* 1. DÜZELTME: İngilizce kelimeler (Student Management) daha uzun olduğu için menü genişletildi */
   background-color: var(--sidebar-bg);
   color: white;
   display: flex;
@@ -83,7 +83,8 @@ html, body, #root {
   border-radius: 0.5rem;
   transition: all 0.2s ease;
   font-weight: 500;
-  white-space: nowrap;
+  white-space: normal; /* 2. DÜZELTME: Yazıların zorla tek satırda kalıp taşmasını engeller, gerekirse şıkça alt satıra iner */
+  line-height: 1.4;
 }
 
 .nav-links a:hover {
@@ -120,6 +121,7 @@ h2 { margin-top: 0; color: var(--text-main); }
 .text-gray { color: var(--text-gray); }
 .fw-500 { font-weight: 500; }
 
+/* Butonlar Genel Kuralları */
 button {
   display: inline-flex;
   align-items: center;
@@ -132,8 +134,7 @@ button {
   cursor: pointer;
   transition: all 0.2s;
   font-size: 0.875rem;
-  white-space: nowrap !important; /* DÜZELTME: Buton yazılarını sabitler */
-  flex-shrink: 0; /* DÜZELTME: Butonun daralmasını engeller */
+  /* 3. DÜZELTME: 'white-space: nowrap !important' kuralı buradan kaldırıldı ki sol menü butonunu patlatmasın! */
 }
 
 .btn-primary { background-color: var(--primary); color: white; }
@@ -284,7 +285,7 @@ button:disabled, .btn-disabled {
 }
 
 /* =========================================
-   DÜZELTME: TABLO VE İKON HİZALAMALARI
+   TABLO VE İKON HİZALAMALARI
    ========================================= */
 
 .table-responsive {
@@ -297,6 +298,12 @@ button:disabled, .btn-disabled {
 .table-responsive td {
   white-space: nowrap;
   vertical-align: middle;
+}
+
+/* 4. DÜZELTME: SADECE Tablo içindeki butonların kırılmasını engeller, menü etkilenmez! */
+.table-responsive button {
+  white-space: nowrap !important;
+  flex-shrink: 0;
 }
 
 td > div > div:first-child {
