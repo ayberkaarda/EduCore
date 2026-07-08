@@ -117,26 +117,24 @@ export default function StudentList() {
                     </table>
                 )}
             </div>
-            {/* YENİ ÖĞRENCİ MODALI */}
+            {/* YENİ ÖĞRENCİ MODALI - UI FIX */}
             {isModalOpen && (
                 <div className="modal-overlay">
-                    <div className="modal-content">
-                        <h3>Yeni Öğrenci Ekle</h3>
-                        <p className="text-gray" style={{fontSize: '0.875rem', marginBottom: '1rem'}}>ID sistemi tarafından otomatik atanacaktır.</p>
+                    <div className="modal-content" style={{ padding: '2.5rem' }}>
+                        <h3 style={{ marginTop: 0, marginBottom: '0.5rem', color: '#111827' }}>Yeni Öğrenci Ekle</h3>
+                        <p className="text-gray" style={{ fontSize: '0.85rem', marginBottom: '1.5rem', lineHeight: '1.4' }}>
+                            Öğrenci numarası ve kimlik ID'si sistem tarafından otomatik olarak atanacaktır.
+                        </p>
                         <form onSubmit={handleCreateStudent}>
-                            <div className="form-group">
-                                <label>Ad</label>
-                                <input required type="text" value={newStudent.firstName} onChange={(e) => setNewStudent({ ...newStudent, firstName: e.target.value })} />
+                            <div style={{ marginBottom: '1.2rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Ad</label>
+                                <input required type="text" value={newStudent.firstName} onChange={(e) => setNewStudent({ ...newStudent, firstName: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #d1d5db', outline: 'none', boxSizing: 'border-box' }} />
                             </div>
-                            <div className="form-group">
-                                <label>Soyad</label>
-                                <input required type="text" value={newStudent.lastName} onChange={(e) => setNewStudent({ ...newStudent, lastName: e.target.value })} />
+                            <div style={{ marginBottom: '2rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Soyad</label>
+                                <input required type="text" value={newStudent.lastName} onChange={(e) => setNewStudent({ ...newStudent, lastName: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #d1d5db', outline: 'none', boxSizing: 'border-box' }} />
                             </div>
-                            <div className="form-group">
-                                <label>Öğrenci Numarası</label>
-                                <input required type="text" placeholder="Örn: 2401050" value={newStudent.studentNumber} onChange={(e) => setNewStudent({ ...newStudent, studentNumber: e.target.value })} />
-                            </div>
-                            <div className="modal-actions">
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
                                 <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>İptal</button>
                                 <button type="submit" className="btn-primary">Kaydet</button>
                             </div>
