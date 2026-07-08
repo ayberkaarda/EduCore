@@ -88,10 +88,14 @@ public class ApiController {
         accountRepository.save(account);
         return ResponseEntity.ok("Rol başarıyla güncellendi.");
     }
-    // YENİ: Yeni Öğrenci Ekleme (ID veritabanı tarafından otomatik atanır)
     @PostMapping("/accounts/student")
     public ResponseEntity<?> createStudent(@RequestBody Account account) {
-        account.setRole(Role.STUDENT); // Güvenlik kalkanı: Gelen kişi zorla Öğrenci yapılır
+        account.setRole(Role.STUDENT);
+
+        // MÜHENDİSLİK DOKUNUŞU: Sistemdeki kişi sayısına bakarak sıradaki benzersiz numarayı oluşturur.
+        long totalUsers = accountRepository.count();
+        account.setStudentNumber("260" + (1000 + totalUsers)); // Örn: 2601004, 2601005
+
         Account savedAccount = accountRepository.save(account);
         return ResponseEntity.ok(savedAccount);
     }

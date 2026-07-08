@@ -49,6 +49,7 @@ function App() {
                   <>
                     <li><Link to="/students">🎓 Öğrenci Yönetimi</Link></li>
                     <li><Link to="/users">🛡️ Yetkilendirme</Link></li>
+                    <li><Link to="/courses">📚 Ders Yönetimi</Link></li>
                   </>
               )}
 
