@@ -7,21 +7,23 @@ import { ArrowLeft, CheckCircle2, PlusCircle, Book, Calendar } from 'lucide-reac
 const API_BASE = 'http://localhost:8080/api/v1'
 
 export default function StudentDetail() {
-    const { id } = useParams() // URL'den öğrenci ID'sini alır
+    const { id } = useParams()
     const navigate = useNavigate()
 
     const [allCourses, setAllCourses] = useState([])
     const [enrolledCourses, setEnrolledCourses] = useState([])
     const [isEnrolling, setIsEnrolling] = useState(false)
 
-    // Sayfa açıldığında dersleri çeker
+    // YENİ DERS İÇİN STATE'LER
+    const [isCourseModalOpen, setIsCourseModalOpen] = useState(false)
+    const [newCourse, setNewCourse] = useState({ name: '', term: '' })
+
     useEffect(() => {
         fetchData()
     }, [id])
 
     const fetchData = async () => {
         try {
-            // Promise.all ile iki API'ye aynı anda paralel istek atıyoruz (Performans!)
             const [coursesRes, enrolledRes] = await Promise.all([
                 axios.get(`${API_BASE}/courses`),
                 axios.get(`${API_BASE}/accounts/${id}/courses`)
@@ -33,22 +35,20 @@ export default function StudentDetail() {
         }
     }
 
-    // Ders ekleme işlemi
     const handleEnroll = async (courseId) => {
         setIsEnrolling(true)
         try {
             await axios.post(`${API_BASE}/enroll`, { accountId: id, courseId: courseId })
             toast.success('Ders başarıyla eklendi!')
-            fetchData() // Listeyi tazelemek için tekrar veri çek
+            fetchData()
         } catch (error) {
             toast.error(error.response?.data || 'Ders eklenirken hata oluştu.')
         } finally {
             setIsEnrolling(false)
         }
     }
-    const [isCourseModalOpen, setIsCourseModalOpen] = useState(false)
-    const [newCourse, setNewCourse] = useState({ name: '', term: '' })
 
+    // YENİ DERS KAYIT FONKSİYONU
     const handleCreateCourse = async (e) => {
         e.preventDefault()
         try {
@@ -56,7 +56,7 @@ export default function StudentDetail() {
             toast.success('Yeni ders kataloğa eklendi!')
             setIsCourseModalOpen(false)
             setNewCourse({ name: '', term: '' })
-            fetchData() // Panelleri yenile
+            fetchData()
         } catch (error) {
             toast.error('Ders eklenirken bir hata oluştu.')
         }
@@ -99,12 +99,18 @@ export default function StudentDetail() {
 
                 {/* SAĞ: Eklenebilecek Tüm Dersler */}
                 <div className="card">
-                    <h3 className="section-title">
-                        <Book size={20} color="#4f46e5" /> Tüm Ders Kataloğu
-                    </h3>
+                    {/* UI/UX: BAŞLIK VE YENİ DERS BUTONU YAN YANA EKLENDİ */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <h3 className="section-title" style={{ margin: 0 }}>
+                            <Book size={20} color="#4f46e5" /> Tüm Ders Kataloğu
+                        </h3>
+                        <button className="btn-secondary" onClick={() => setIsCourseModalOpen(true)} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
+                            <PlusCircle size={14} /> Yeni Ders
+                        </button>
+                    </div>
+
                     <div className="course-list">
                         {allCourses.map(course => {
-                            // UX MÜHENDİSLİĞİ: Öğrenci bu dersi almış mı?
                             const isAlreadyEnrolled = enrolledCourses.some(ec => ec.id === course.id)
 
                             return (
@@ -127,6 +133,29 @@ export default function StudentDetail() {
                     </div>
                 </div>
             </div>
+
+            {/* UI/UX: YENİ DERS OLUŞTURMA PENCERESİ (MODAL) EKLENDİ */}
+            {isCourseModalOpen && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h3>Yeni Ders Oluştur</h3>
+                        <form onSubmit={handleCreateCourse}>
+                            <div className="form-group">
+                                <label>Ders Adı</label>
+                                <input required type="text" placeholder="Örn: Mobil Programlama" value={newCourse.name} onChange={(e) => setNewCourse({ ...newCourse, name: e.target.value })} />
+                            </div>
+                            <div className="form-group">
+                                <label>Dönem Bilgisi</label>
+                                <input required type="text" placeholder="Örn: 2026/1" value={newCourse.term} onChange={(e) => setNewCourse({ ...newCourse, term: e.target.value })} />
+                            </div>
+                            <div className="modal-actions">
+                                <button type="button" className="btn-secondary" onClick={() => setIsCourseModalOpen(false)}>İptal</button>
+                                <button type="submit" className="btn-primary">Oluştur</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
