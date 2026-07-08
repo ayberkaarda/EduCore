@@ -10,6 +10,12 @@ import org.springframework.data.repository.query.Param;
 
 public interface AccountRepository extends JpaRepository<Account, Long> {
 
+    // Sistemdeki tüm kullanıcıları (Role bakmaksızın) aramak için
+    @Query("SELECT a FROM Account a WHERE " +
+            "LOWER(a.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(a.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(COALESCE(a.studentNumber, '')) LIKE LOWER(CONCAT('%', :search, '%'))")
+    Page<Account> searchAllAccounts(@Param("search") String search, Pageable pageable);
     @Query("SELECT a FROM Account a WHERE a.role = :role AND (" +
             "LOWER(a.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "LOWER(a.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
