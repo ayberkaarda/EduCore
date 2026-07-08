@@ -81,7 +81,7 @@ function App() {
           {/* ANA İÇERİK ALANI */}
           <main className="content-area">
             <Routes>
-              <Route path="/" element={<div className="card"><h2>Hoş Geldiniz, {currentUser.name}</h2><p>Sol menüden işleminizi seçin. Portfolyoyu test etmek için sol alttaki 'Hesap Değiştir' butonunu kullanabilirsiniz.</p></div>} />
+              <Route path="/" element={<div className="card"><h2>Hoş Geldiniz, {currentUser.name}</h2><p>Sol menüden işleminizi seçin. </p></div>} />
 
               {/* AKADEMİSYEN ROTALARI */}
               <Route path="/students" element={<AcademicianRoute currentUser={currentUser}><StudentList /></AcademicianRoute>} />

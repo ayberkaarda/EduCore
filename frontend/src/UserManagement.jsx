@@ -53,10 +53,15 @@ export default function UserManagement() {
                     <Search className="search-icon" size={20} style={{ position: 'absolute', left: '10px', top: '10px', color: '#6b7280' }} />
                     <input
                         type="text"
-                        placeholder="Kullanıcı ara..."
+                        placeholder="Ara..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.5rem', borderRadius: '0.5rem', border: '1px solid #e5e7eb', outline: 'none' }}
+                        style={{ width: '100%',
+                            padding: '0.6rem 1rem 0.6rem 2.5rem',
+                            borderRadius: '0.5rem',
+                            border: '1px solid #e5e7eb',
+                            outline: 'none',
+                            boxSizing: 'border-box' }}
                     />
                 </div>
             </div>
@@ -93,8 +98,8 @@ export default function UserManagement() {
                                         onChange={(e) => handleRoleChange(user.id, e.target.value)}
                                         style={{ padding: '0.4rem', borderRadius: '0.375rem', border: '1px solid #d1d5db', outline: 'none', cursor: 'pointer' }}
                                     >
-                                        <option value="STUDENT">Öğrenci Yap</option>
-                                        <option value="ACADEMICIAN">Akademisyen Yap</option>
+                                        <option value="STUDENT">Öğrenci</option>
+                                        <option value="ACADEMICIAN">Akademisyen</option>
                                     </select>
                                 </td>
                             </tr>
