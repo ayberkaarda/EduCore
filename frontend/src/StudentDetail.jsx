@@ -14,10 +14,6 @@ export default function StudentDetail() {
     const [enrolledCourses, setEnrolledCourses] = useState([])
     const [isEnrolling, setIsEnrolling] = useState(false)
 
-    // YENİ DERS İÇİN STATE'LER
-    const [isCourseModalOpen, setIsCourseModalOpen] = useState(false)
-    const [newCourse, setNewCourse] = useState({ name: '', term: '' })
-
     useEffect(() => {
         fetchData()
     }, [id])
@@ -45,20 +41,6 @@ export default function StudentDetail() {
             toast.error(error.response?.data || 'Ders eklenirken hata oluştu.')
         } finally {
             setIsEnrolling(false)
-        }
-    }
-
-    // YENİ DERS KAYIT FONKSİYONU
-    const handleCreateCourse = async (e) => {
-        e.preventDefault()
-        try {
-            await axios.post(`${API_BASE}/courses`, newCourse)
-            toast.success('Yeni ders kataloğa eklendi!')
-            setIsCourseModalOpen(false)
-            setNewCourse({ name: '', term: '' })
-            fetchData()
-        } catch (error) {
-            toast.error('Ders eklenirken bir hata oluştu.')
         }
     }
 
@@ -99,14 +81,10 @@ export default function StudentDetail() {
 
                 {/* SAĞ: Eklenebilecek Tüm Dersler */}
                 <div className="card">
-                    {/* UI/UX: BAŞLIK VE YENİ DERS BUTONU YAN YANA EKLENDİ */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                         <h3 className="section-title" style={{ margin: 0 }}>
                             <Book size={20} color="#4f46e5" /> Tüm Ders Kataloğu
                         </h3>
-                        <button className="btn-secondary" onClick={() => setIsCourseModalOpen(true)} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
-                            <PlusCircle size={14} /> Yeni Ders
-                        </button>
                     </div>
 
                     <div className="course-list">
@@ -133,29 +111,6 @@ export default function StudentDetail() {
                     </div>
                 </div>
             </div>
-
-            {/* UI/UX: YENİ DERS OLUŞTURMA PENCERESİ (MODAL) EKLENDİ */}
-            {isCourseModalOpen && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <h3>Yeni Ders Oluştur</h3>
-                        <form onSubmit={handleCreateCourse}>
-                            <div className="form-group">
-                                <label>Ders Adı</label>
-                                <input required type="text" placeholder="Örn: Mobil Programlama" value={newCourse.name} onChange={(e) => setNewCourse({ ...newCourse, name: e.target.value })} />
-                            </div>
-                            <div className="form-group">
-                                <label>Dönem Bilgisi</label>
-                                <input required type="text" placeholder="Örn: 2026/1" value={newCourse.term} onChange={(e) => setNewCourse({ ...newCourse, term: e.target.value })} />
-                            </div>
-                            <div className="modal-actions">
-                                <button type="button" className="btn-secondary" onClick={() => setIsCourseModalOpen(false)}>İptal</button>
-                                <button type="submit" className="btn-primary">Oluştur</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </div>
     )
 }
