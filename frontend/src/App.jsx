@@ -1,27 +1,35 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom'
 import { useState } from 'react'
-import { Shield, BookOpen, UserCircle } from 'lucide-react'
+import { Shield, BookOpen, UserCircle, RefreshCcw } from 'lucide-react'
 import StudentDetail from './StudentDetail'
+import StudentList from './StudentList'
 import UserManagement from './UserManagement'
-import StudentList from './StudentList' // YENİ EKLENEN İMPORT
+import StudentProfile from './StudentProfile' // YENİ EKLENDİ
 import './App.css'
 
-// --- KORUMALI ROTA (Mühendislik Standartı) ---
-// Sadece Akademisyenlerin girmesi gereken sayfalarda kalkan görevi görür.
-const ProtectedRoute = ({ children, currentUser }) => {
-  if (currentUser.role !== 'ACADEMICIAN') {
-    return <Navigate to="/unauthorized" replace />
-  }
+// Demo Kullanıcıları (Backend Seeder'daki ID'lere göre ayarlandı)
+const ACADEMICIAN_USER = { id: 4, name: 'Prof. Dr. Ahmet Hoca', role: 'ACADEMICIAN' }
+const STUDENT_USER = { id: 1, name: 'Ayberk Arda', role: 'STUDENT' }
+
+// Akademisyen Koruması
+const AcademicianRoute = ({ children, currentUser }) => {
+  if (currentUser.role !== 'ACADEMICIAN') return <Navigate to="/unauthorized" replace />
+  return children
+}
+
+// Öğrenci Koruması
+const StudentRoute = ({ children, currentUser }) => {
+  if (currentUser.role !== 'STUDENT') return <Navigate to="/unauthorized" replace />
   return children
 }
 
 function App() {
-  // GİRİŞ YAPAN KULLANICIYI SİMÜLE EDİYORUZ (Gerçekte bu JWT token'dan gelir)
-  const [currentUser, setCurrentUser] = useState({
-    id: 1,
-    name: 'Prof. Dr. Ahmet Yılmaz',
-    role: 'ACADEMICIAN' // Bunu 'STUDENT' yapıp test edebilirsin
-  })
+  const [currentUser, setCurrentUser] = useState(ACADEMICIAN_USER)
+
+  // DEMO İÇİN KULLANICI DEĞİŞTİRME FONKSİYONU
+  const toggleRole = () => {
+    setCurrentUser(currentUser.role === 'ACADEMICIAN' ? STUDENT_USER : ACADEMICIAN_USER)
+  }
 
   return (
       <Router>
@@ -36,48 +44,52 @@ function App() {
             <ul className="nav-links">
               <li><Link to="/">🏠 Ana Sayfa</Link></li>
 
-              {/* RBAC: Sadece Akademisyen menüde bu linkleri görebilir */}
+              {/* SADECE AKADEMİSYEN GÖREBİLİR */}
               {currentUser.role === 'ACADEMICIAN' && (
                   <>
                     <li><Link to="/students">🎓 Öğrenci Yönetimi</Link></li>
-                    <li><Link to="/users">🛡️ Yetkilendirme</Link></li>  {/* YENİ EKLENEN BUTON */}
+                    <li><Link to="/users">🛡️ Yetkilendirme</Link></li>
                   </>
+              )}
+
+              {/* SADECE ÖĞRENCİ GÖREBİLİR */}
+              {currentUser.role === 'STUDENT' && (
+                  <li><Link to="/my-profile">👤 Profilim & Derslerim</Link></li>
               )}
             </ul>
 
             <div className="user-profile">
               <UserCircle size={32} />
-              <div>
-                <p className="fw-500">{currentUser.name}</p>
+              <div style={{ flex: 1 }}>
+                <p className="fw-500" style={{ fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {currentUser.name}
+                </p>
                 <p className="text-gray" style={{fontSize: '12px'}}>{currentUser.role}</p>
               </div>
             </div>
+
+            {/* PORTFOLYO ŞOVU: HIZLI ROL DEĞİŞTİRİCİ */}
+            <button
+                onClick={toggleRole}
+                style={{ marginTop: '1rem', width: '100%', padding: '0.5rem', backgroundColor: '#374151', color: 'white', fontSize: '12px', border: '1px solid #4b5563' }}
+            >
+              <RefreshCcw size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }}/>
+              {currentUser.role === 'ACADEMICIAN' ? 'Öğrenci Hesabına Geç' : 'Hoca Hesabına Geç'}
+            </button>
           </nav>
 
           {/* ANA İÇERİK ALANI */}
           <main className="content-area">
             <Routes>
-              <Route path="/" element={<div className="card"><h2>Hoş Geldiniz, {currentUser.name}</h2><p>Sol menüden işleminizi seçin.</p></div>} />
+              <Route path="/" element={<div className="card"><h2>Hoş Geldiniz, {currentUser.name}</h2><p>Sol menüden işleminizi seçin. Portfolyoyu test etmek için sol alttaki 'Hesap Değiştir' butonunu kullanabilirsiniz.</p></div>} />
 
-              {/* KORUMALI ROTA UYGULANMIŞ SAYFALAR */}
-              <Route
-                  path="/students"
-                  element={
-                    <ProtectedRoute currentUser={currentUser}>
-                      {/* YENİ EKLENEN BİLEŞEN BURADA */}
-                      <StudentList />
-                    </ProtectedRoute>
-                  }
-              />
+              {/* AKADEMİSYEN ROTALARI */}
+              <Route path="/students" element={<AcademicianRoute currentUser={currentUser}><StudentList /></AcademicianRoute>} />
+              <Route path="/students/:id" element={<AcademicianRoute currentUser={currentUser}><StudentDetail /></AcademicianRoute>} />
+              <Route path="/users" element={<AcademicianRoute currentUser={currentUser}><UserManagement /></AcademicianRoute>} />
 
-              <Route
-                  path="/students/:id"
-                  element={
-                    <ProtectedRoute currentUser={currentUser}>
-                      <StudentDetail />
-                    </ProtectedRoute>
-                  }
-              />
+              {/* ÖĞRENCİ ROTALARI */}
+              <Route path="/my-profile" element={<StudentRoute currentUser={currentUser}><StudentProfile currentUser={currentUser} /></StudentRoute>} />
 
               <Route path="/unauthorized" element={<div className="card empty-state"><Shield size={48} color="red" /><h2>Erişim Reddedildi</h2><p>Bu sayfayı görüntüleme yetkiniz yok.</p></div>} />
             </Routes>
