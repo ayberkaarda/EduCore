@@ -46,6 +46,21 @@ export default function StudentDetail() {
             setIsEnrolling(false)
         }
     }
+    const [isCourseModalOpen, setIsCourseModalOpen] = useState(false)
+    const [newCourse, setNewCourse] = useState({ name: '', term: '' })
+
+    const handleCreateCourse = async (e) => {
+        e.preventDefault()
+        try {
+            await axios.post(`${API_BASE}/courses`, newCourse)
+            toast.success('Yeni ders kataloğa eklendi!')
+            setIsCourseModalOpen(false)
+            setNewCourse({ name: '', term: '' })
+            fetchData() // Panelleri yenile
+        } catch (error) {
+            toast.error('Ders eklenirken bir hata oluştu.')
+        }
+    }
 
     return (
         <div className="student-detail-wrapper">

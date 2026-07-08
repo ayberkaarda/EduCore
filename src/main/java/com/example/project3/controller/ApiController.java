@@ -88,4 +88,18 @@ public class ApiController {
         accountRepository.save(account);
         return ResponseEntity.ok("Rol başarıyla güncellendi.");
     }
+    // YENİ: Yeni Öğrenci Ekleme (ID veritabanı tarafından otomatik atanır)
+    @PostMapping("/accounts/student")
+    public ResponseEntity<?> createStudent(@RequestBody Account account) {
+        account.setRole(Role.STUDENT); // Güvenlik kalkanı: Gelen kişi zorla Öğrenci yapılır
+        Account savedAccount = accountRepository.save(account);
+        return ResponseEntity.ok(savedAccount);
+    }
+
+    // YENİ: Yeni Ders Oluşturma (Dönem bilgisi dahil)
+    @PostMapping("/courses")
+    public ResponseEntity<?> createCourse(@RequestBody Course course) {
+        Course savedCourse = courseRepository.save(course);
+        return ResponseEntity.ok(new CourseDTO(savedCourse.getId(), savedCourse.getName(), savedCourse.getTerm()));
+    }
 }
