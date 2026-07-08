@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-ro
 import { useState } from 'react'
 import { Shield, BookOpen, UserCircle } from 'lucide-react'
 import StudentDetail from './StudentDetail'
+import UserManagement from './UserManagement'
+import StudentList from './StudentList' // YENİ EKLENEN İMPORT
 import './App.css'
 
 // --- KORUMALI ROTA (Mühendislik Standartı) ---
@@ -34,9 +36,12 @@ function App() {
             <ul className="nav-links">
               <li><Link to="/">🏠 Ana Sayfa</Link></li>
 
-              {/* RBAC: Sadece Akademisyen menüde bu linki görebilir */}
+              {/* RBAC: Sadece Akademisyen menüde bu linkleri görebilir */}
               {currentUser.role === 'ACADEMICIAN' && (
-                  <li><Link to="/students">🎓 Öğrenci Yönetimi</Link></li>
+                  <>
+                    <li><Link to="/students">🎓 Öğrenci Yönetimi</Link></li>
+                    <li><Link to="/users">🛡️ Yetkilendirme</Link></li>  {/* YENİ EKLENEN BUTON */}
+                  </>
               )}
             </ul>
 
@@ -59,7 +64,8 @@ function App() {
                   path="/students"
                   element={
                     <ProtectedRoute currentUser={currentUser}>
-                      <div className="card"><h2>Öğrenci Yönetimi</h2><p>Burada arama filtreleme componenti olacak (Önceki projedeki gibi)</p></div>
+                      {/* YENİ EKLENEN BİLEŞEN BURADA */}
+                      <StudentList />
                     </ProtectedRoute>
                   }
               />

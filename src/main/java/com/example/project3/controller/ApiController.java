@@ -2,6 +2,7 @@ package com.example.project3.controller;
 
 import com.example.project3.dto.CourseDTO;
 import com.example.project3.dto.EnrollmentRequest;
+import com.example.project3.dto.AccountDTO;
 import com.example.project3.entity.*;
 import com.example.project3.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,5 +56,36 @@ public class ApiController {
 
         enrollmentRepository.save(enrollment);
         return ResponseEntity.ok("Ders başarıyla eklendi.");
+    }
+    // Öğrencileri Sayfalamalı ve Arama Filtreli Getir
+    @GetMapping("/accounts/students")
+    public org.springframework.data.domain.Page<AccountDTO> searchStudents(
+            @RequestParam(defaultValue = "") String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        return accountRepository.searchAccountsByRole(Role.STUDENT, search, pageable)
+                .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole()));
+    }
+    // 1. Tüm Kullanıcıları Getir (Yetkilendirme sayfası için)
+    @GetMapping("/accounts")
+    public org.springframework.data.domain.Page<AccountDTO> searchAllAccounts(
+            @RequestParam(defaultValue = "") String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        return accountRepository.searchAllAccounts(search, pageable)
+                .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole()));
+    }
+
+    // 2. Kullanıcının Rolünü Güncelle
+    @PutMapping("/accounts/{id}/role")
+    public ResponseEntity<?> updateRole(@PathVariable Long id, @RequestBody java.util.Map<String, String> payload) {
+        Account account = accountRepository.findById(id).orElseThrow();
+        account.setRole(Role.valueOf(payload.get("role")));
+        accountRepository.save(account);
+        return ResponseEntity.ok("Rol başarıyla güncellendi.");
     }
 }
