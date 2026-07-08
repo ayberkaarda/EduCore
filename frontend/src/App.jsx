@@ -5,20 +5,17 @@ import StudentDetail from './StudentDetail'
 import StudentList from './StudentList'
 import UserManagement from './UserManagement'
 import StudentProfile from './StudentProfile'
-import CourseManagement from './CourseManagement' // YENİ EKLENDİ
+import CourseManagement from './CourseManagement'
 import './App.css'
 
-// Demo Kullanıcıları
-const ACADEMICIAN_USER = { id: 4, name: 'Prof. Dr. Ahmet Hoca', role: 'ACADEMICIAN' }
+const ACADEMICIAN_USER = { id: 4, name: 'Prof. Dr. Ahmet Smith', role: 'ACADEMICIAN' }
 const STUDENT_USER = { id: 1, name: 'Ayberk Arda', role: 'STUDENT' }
 
-// Akademisyen Koruması
 const AcademicianRoute = ({ children, currentUser }) => {
   if (currentUser.role !== 'ACADEMICIAN') return <Navigate to="/unauthorized" replace />
   return children
 }
 
-// Öğrenci Koruması
 const StudentRoute = ({ children, currentUser }) => {
   if (currentUser.role !== 'STUDENT') return <Navigate to="/unauthorized" replace />
   return children
@@ -34,7 +31,6 @@ function App() {
   return (
       <Router>
         <div className="app-layout">
-          {/* YAN MENÜ */}
           <nav className="sidebar">
             <div className="brand">
               <BookOpen size={24} className="text-primary" />
@@ -42,20 +38,18 @@ function App() {
             </div>
 
             <ul className="nav-links">
-              <li><Link to="/">🏠 Ana Sayfa</Link></li>
+              <li><Link to="/">🏠 Home</Link></li>
 
-              {/* SADECE AKADEMİSYEN GÖREBİLİR */}
               {currentUser.role === 'ACADEMICIAN' && (
                   <>
-                    <li><Link to="/students">🎓 Öğrenci Yönetimi</Link></li>
-                    <li><Link to="/courses">📚 Ders Yönetimi</Link></li> {/* YENİ EKLENDİ */}
-                    <li><Link to="/users">🛡️ Yetkilendirme</Link></li>
+                    <li><Link to="/students">🎓 Student Management</Link></li>
+                    <li><Link to="/courses">📚 Course Management</Link></li>
+                    <li><Link to="/users">🛡️ Role Management</Link></li>
                   </>
               )}
 
-              {/* SADECE ÖĞRENCİ GÖREBİLİR */}
               {currentUser.role === 'STUDENT' && (
-                  <li><Link to="/my-profile">👤 Profilim & Derslerim</Link></li>
+                  <li><Link to="/my-profile">👤 My Profile & Courses</Link></li>
               )}
             </ul>
 
@@ -74,25 +68,22 @@ function App() {
                 style={{ marginTop: '1rem', width: '100%', padding: '0.5rem', backgroundColor: '#374151', color: 'white', fontSize: '12px', border: '1px solid #4b5563', borderRadius: '0.5rem', cursor: 'pointer' }}
             >
               <RefreshCcw size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }}/>
-              {currentUser.role === 'ACADEMICIAN' ? 'Öğrenci Hesabına Geç' : 'Hoca Hesabına Geç'}
+              {currentUser.role === 'ACADEMICIAN' ? 'Switch to Student' : 'Switch to Academician'}
             </button>
           </nav>
 
-          {/* ANA İÇERİK ALANI */}
           <main className="content-area">
             <Routes>
-              <Route path="/" element={<div className="card"><h2>Hoş Geldiniz, {currentUser.name}</h2><p>Sol menüden işleminizi seçin.</p></div>} />
+              <Route path="/" element={<div className="card"><h2>Welcome, {currentUser.name}</h2><p>Please select an action from the left menu. Use the switch button below to test the roles.</p></div>} />
 
-              {/* AKADEMİSYEN ROTALARI */}
               <Route path="/students" element={<AcademicianRoute currentUser={currentUser}><StudentList /></AcademicianRoute>} />
               <Route path="/students/:id" element={<AcademicianRoute currentUser={currentUser}><StudentDetail /></AcademicianRoute>} />
               <Route path="/users" element={<AcademicianRoute currentUser={currentUser}><UserManagement /></AcademicianRoute>} />
-              <Route path="/courses" element={<AcademicianRoute currentUser={currentUser}><CourseManagement /></AcademicianRoute>} /> {/* YENİ EKLENDİ */}
+              <Route path="/courses" element={<AcademicianRoute currentUser={currentUser}><CourseManagement /></AcademicianRoute>} />
 
-              {/* ÖĞRENCİ ROTALARI */}
               <Route path="/my-profile" element={<StudentRoute currentUser={currentUser}><StudentProfile currentUser={currentUser} /></StudentRoute>} />
 
-              <Route path="/unauthorized" element={<div className="card empty-state"><Shield size={48} color="red" /><h2>Erişim Reddedildi</h2><p>Bu sayfayı görüntüleme yetkiniz yok.</p></div>} />
+              <Route path="/unauthorized" element={<div className="card empty-state"><Shield size={48} color="red" /><h2>Access Denied</h2><p>You do not have permission to view this page.</p></div>} />
             </Routes>
           </main>
         </div>

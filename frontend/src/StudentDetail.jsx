@@ -27,7 +27,7 @@ export default function StudentDetail() {
             setAllCourses(coursesRes.data)
             setEnrolledCourses(enrolledRes.data)
         } catch (error) {
-            toast.error('Ders verileri çekilemedi.')
+            toast.error('Failed to load course data.')
         }
     }
 
@@ -35,10 +35,10 @@ export default function StudentDetail() {
         setIsEnrolling(true)
         try {
             await axios.post(`${API_BASE}/enroll`, { accountId: id, courseId: courseId })
-            toast.success('Ders başarıyla eklendi!')
+            toast.success('Course successfully added!')
             fetchData()
         } catch (error) {
-            toast.error(error.response?.data || 'Ders eklenirken hata oluştu.')
+            toast.error(error.response?.data || 'Error occurred while adding the course.')
         } finally {
             setIsEnrolling(false)
         }
@@ -48,23 +48,22 @@ export default function StudentDetail() {
         <div className="student-detail-wrapper">
             <Toaster />
             <button className="btn-secondary back-btn" onClick={() => navigate(-1)}>
-                <ArrowLeft size={18} /> Geri Dön
+                <ArrowLeft size={18} /> Go Back
             </button>
 
             <div className="detail-header">
-                <h2>Öğrenci Profil & Ders Kaydı</h2>
-                <p className="text-gray">Öğrenci Numarası: #STU-{id}</p>
+                <h2>Student Profile & Course Enrollment</h2>
+                <p className="text-gray">Student Number: #STU-{id}</p>
             </div>
 
             <div className="course-grid">
-                {/* SOL: Alınan Dersler */}
                 <div className="card">
                     <h3 className="section-title">
-                        <CheckCircle2 size={20} color="#10b981" /> Alınan Dersler
+                        <CheckCircle2 size={20} color="#10b981" /> Enrolled Courses
                     </h3>
                     <div className="course-list">
                         {enrolledCourses.length === 0 ? (
-                            <p className="empty-state text-gray">Öğrenci henüz hiç ders almamış.</p>
+                            <p className="empty-state text-gray">The student has not enrolled in any courses yet.</p>
                         ) : (
                             enrolledCourses.map(course => (
                                 <div key={course.id} className="course-item active">
@@ -72,18 +71,17 @@ export default function StudentDetail() {
                                         <h4>{course.name}</h4>
                                         <span><Calendar size={14} /> {course.term}</span>
                                     </div>
-                                    <span className="badge success">Kayıtlı</span>
+                                    <span className="badge success">Enrolled</span>
                                 </div>
                             ))
                         )}
                     </div>
                 </div>
 
-                {/* SAĞ: Eklenebilecek Tüm Dersler */}
                 <div className="card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                         <h3 className="section-title" style={{ margin: 0 }}>
-                            <Book size={20} color="#4f46e5" /> Tüm Ders Kataloğu
+                            <Book size={20} color="#4f46e5" /> Full Course Catalog
                         </h3>
                     </div>
 
@@ -103,7 +101,7 @@ export default function StudentDetail() {
                                         onClick={() => handleEnroll(course.id)}
                                         disabled={isAlreadyEnrolled || isEnrolling}
                                     >
-                                        {isAlreadyEnrolled ? 'Alındı' : <><PlusCircle size={16} /> Ekle</>}
+                                        {isAlreadyEnrolled ? 'Enrolled' : <><PlusCircle size={16} /> Enroll</>}
                                     </button>
                                 </div>
                             )

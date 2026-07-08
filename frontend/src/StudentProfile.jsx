@@ -10,7 +10,6 @@ export default function StudentProfile({ currentUser }) {
     const [enrolledCourses, setEnrolledCourses] = useState([])
     const [isEnrolling, setIsEnrolling] = useState(false)
 
-    // Kullanıcı değiştiğinde verileri otomatik yenile
     useEffect(() => {
         fetchData()
     }, [currentUser.id])
@@ -24,7 +23,7 @@ export default function StudentProfile({ currentUser }) {
             setAllCourses(coursesRes.data)
             setEnrolledCourses(enrolledRes.data)
         } catch (error) {
-            toast.error('Ders verileri çekilemedi.')
+            toast.error('Failed to load course data.')
         }
     }
 
@@ -32,11 +31,10 @@ export default function StudentProfile({ currentUser }) {
         setIsEnrolling(true)
         try {
             await axios.post(`${API_BASE}/enroll`, { accountId: currentUser.id, courseId: courseId })
-            toast.success('Ders başarıyla seçildi!')
-            fetchData() // Listeyi tazele
+            toast.success('Course successfully selected!')
+            fetchData()
         } catch (error) {
-            // Backend'den gelen GlobalExceptionHandler hatasını yakala
-            toast.error(error.response?.data?.error || 'Ders seçilirken hata oluştu.')
+            toast.error(error.response?.data?.error || 'Error occurred while selecting the course.')
         } finally {
             setIsEnrolling(false)
         }
@@ -46,19 +44,18 @@ export default function StudentProfile({ currentUser }) {
         <div className="student-detail-wrapper">
             <Toaster />
             <div className="detail-header">
-                <h2><UserCheck size={28} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '10px', color: '#4f46e5' }} /> Öğrenci Profilim</h2>
-                <p className="text-gray">Hoş geldin {currentUser.name}, aşağıdan dönem derslerini seçebilirsin.</p>
+                <h2><UserCheck size={28} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '10px', color: '#4f46e5' }} /> My Student Profile</h2>
+                <p className="text-gray">Welcome {currentUser.name}, you can select your term courses below.</p>
             </div>
 
             <div className="course-grid">
-                {/* SOL: Seçtiğim Dersler */}
                 <div className="card">
                     <h3 className="section-title">
-                        <CheckCircle2 size={20} color="#10b981" /> Seçtiğim Dersler
+                        <CheckCircle2 size={20} color="#10b981" /> My Enrolled Courses
                     </h3>
                     <div className="course-list">
                         {enrolledCourses.length === 0 ? (
-                            <p className="empty-state text-gray">Henüz hiçbir ders seçmedin.</p>
+                            <p className="empty-state text-gray">You haven't selected any courses yet.</p>
                         ) : (
                             enrolledCourses.map(course => (
                                 <div key={course.id} className="course-item active">
@@ -66,17 +63,16 @@ export default function StudentProfile({ currentUser }) {
                                         <h4>{course.name}</h4>
                                         <span><Calendar size={14} /> {course.term}</span>
                                     </div>
-                                    <span className="badge success">Kayıtlı</span>
+                                    <span className="badge success">Enrolled</span>
                                 </div>
                             ))
                         )}
                     </div>
                 </div>
 
-                {/* SAĞ: Açık Ders Kataloğu */}
                 <div className="card">
                     <h3 className="section-title">
-                        <Book size={20} color="#4f46e5" /> Açık Ders Kataloğu
+                        <Book size={20} color="#4f46e5" /> Available Course Catalog
                     </h3>
                     <div className="course-list">
                         {allCourses.map(course => {
@@ -94,7 +90,7 @@ export default function StudentProfile({ currentUser }) {
                                         onClick={() => handleEnroll(course.id)}
                                         disabled={isAlreadyEnrolled || isEnrolling}
                                     >
-                                        {isAlreadyEnrolled ? 'Seçildi' : <><PlusCircle size={16} /> Seç</>}
+                                        {isAlreadyEnrolled ? 'Selected' : <><PlusCircle size={16} /> Select</>}
                                     </button>
                                 </div>
                             )

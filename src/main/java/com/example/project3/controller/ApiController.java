@@ -21,7 +21,6 @@ public class ApiController {
     @Autowired private CourseRepository courseRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
 
-    // Tüm dersleri getir (Sağ taraftaki liste için)
     @GetMapping("/courses")
     public List<CourseDTO> getAllCourses() {
         return courseRepository.findAll().stream()
@@ -29,7 +28,6 @@ public class ApiController {
                 .collect(Collectors.toList());
     }
 
-    // Öğrencinin aldığı dersleri getir (Sol taraftaki liste için)
     @GetMapping("/accounts/{accountId}/courses")
     public List<CourseDTO> getEnrolledCourses(@PathVariable Long accountId) {
         return enrollmentRepository.findByAccountId(accountId).stream()
@@ -37,16 +35,14 @@ public class ApiController {
                 .collect(Collectors.toList());
     }
 
-    // Öğrenciye Ders Ekle (Enrollment)
     @PostMapping("/enroll")
     public ResponseEntity<?> enrollCourse(@RequestBody EnrollmentRequest request) {
-        // Öğrenci veya Ders yoksa hata fırlatır
+
         Account account = accountRepository.findById(request.accountId()).orElseThrow();
         Course course = courseRepository.findById(request.courseId()).orElseThrow();
 
-        // Daha önce almış mı kontrolü (GlobalExceptionHandler'a düşmeden zarifçe çözeriz)
         if(enrollmentRepository.existsByAccountIdAndCourseId(account.getId(), course.getId())) {
-            return ResponseEntity.badRequest().body("Bu öğrenci bu dersi zaten almış.");
+            return ResponseEntity.badRequest().body("{\"error\": \"User is already enrolled in this course.\"}");
         }
 
         Enrollment enrollment = Enrollment.builder()
@@ -55,9 +51,9 @@ public class ApiController {
                 .build();
 
         enrollmentRepository.save(enrollment);
-        return ResponseEntity.ok("Ders başarıyla eklendi.");
+        return ResponseEntity.ok("Enrolled successfully.");
     }
-    // Öğrencileri Sayfalamalı ve Arama Filtreli Getir
+
     @GetMapping("/accounts/students")
     public org.springframework.data.domain.Page<AccountDTO> searchStudents(
             @RequestParam(defaultValue = "") String search,
@@ -68,7 +64,7 @@ public class ApiController {
         return accountRepository.searchAccountsByRole(Role.STUDENT, search, pageable)
                 .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole()));
     }
-    // 1. Tüm Kullanıcıları Getir (Yetkilendirme sayfası için)
+
     @GetMapping("/accounts")
     public org.springframework.data.domain.Page<AccountDTO> searchAllAccounts(
             @RequestParam(defaultValue = "") String search,
@@ -80,27 +76,25 @@ public class ApiController {
                 .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole()));
     }
 
-    // 2. Kullanıcının Rolünü Güncelle
     @PutMapping("/accounts/{id}/role")
     public ResponseEntity<?> updateRole(@PathVariable Long id, @RequestBody java.util.Map<String, String> payload) {
         Account account = accountRepository.findById(id).orElseThrow();
         account.setRole(Role.valueOf(payload.get("role")));
         accountRepository.save(account);
-        return ResponseEntity.ok("Rol başarıyla güncellendi.");
+        return ResponseEntity.ok("Role successfully updated.");
     }
+
     @PostMapping("/accounts/student")
     public ResponseEntity<?> createStudent(@RequestBody Account account) {
         account.setRole(Role.STUDENT);
 
-        // MÜHENDİSLİK DOKUNUŞU: Sistemdeki kişi sayısına bakarak sıradaki benzersiz numarayı oluşturur.
         long totalUsers = accountRepository.count();
-        account.setStudentNumber("260" + (1000 + totalUsers)); // Örn: 2601004, 2601005
+        account.setStudentNumber("260" + (1000 + totalUsers));
 
         Account savedAccount = accountRepository.save(account);
         return ResponseEntity.ok(savedAccount);
     }
 
-    // YENİ: Yeni Ders Oluşturma (Dönem bilgisi dahil)
     @PostMapping("/courses")
     public ResponseEntity<?> createCourse(@RequestBody Course course) {
         Course savedCourse = courseRepository.save(course);

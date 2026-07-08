@@ -17,22 +17,21 @@ public class DataSeeder {
     @Bean
     CommandLineRunner initDatabase(AccountRepository accountRepo, CourseRepository courseRepo) {
         return args -> {
-            // Eğer veritabanı boşsa örnek veriler ekle
             if (courseRepo.count() == 0) {
                 courseRepo.saveAll(List.of(
-                        Course.builder().name("İleri Düzey Web Geliştirme").term("2026/1").build(),
-                        Course.builder().name("Veri Yapıları ve Algoritmalar").term("2026/1").build(),
-                        Course.builder().name("Sistem Programlama (Rust)").term("2026/2").build(),
-                        Course.builder().name("Yapay Zeka Temelleri").term("2026/2").build()
+                        Course.builder().name("Advanced Web Development").term("2026/1").build(),
+                        Course.builder().name("Data Structures and Algorithms").term("2026/1").build(),
+                        Course.builder().name("Systems Programming (Rust)").term("2026/2").build(),
+                        Course.builder().name("Fundamentals of AI").term("2026/2").build()
                 ));
             }
 
             if (accountRepo.count() == 0) {
                 accountRepo.saveAll(List.of(
                         Account.builder().firstName("Ayberk").lastName("Arda").studentNumber("2401001").role(Role.STUDENT).build(),
-                        Account.builder().firstName("Ali").lastName("Yılmaz").studentNumber("2401002").role(Role.STUDENT).build(),
+                        Account.builder().firstName("Ali").lastName("Yilmaz").studentNumber("2401002").role(Role.STUDENT).build(),
                         Account.builder().firstName("Zeynep").lastName("Kaya").studentNumber("2401003").role(Role.STUDENT).build(),
-                        Account.builder().firstName("Ahmet").lastName("Hoca").studentNumber(null).role(Role.ACADEMICIAN).build()
+                        Account.builder().firstName("Ahmet").lastName("Smith").studentNumber(null).role(Role.ACADEMICIAN).build()
                 ));
             }
         };
