@@ -31,3 +31,4 @@ build/
 
 ### VS Code ###
 .vscode/
+data/educore_db.mv.db
