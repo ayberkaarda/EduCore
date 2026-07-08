@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { Search, ChevronRight, User, Loader2 } from 'lucide-react'
+import { Search, ChevronRight, User, Loader2, Plus } from 'lucide-react'
 import { useDebounce } from './hooks/useDebounce'
 
 const API_BASE = 'http://localhost:8080/api/v1'
