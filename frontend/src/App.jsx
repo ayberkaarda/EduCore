@@ -4,10 +4,11 @@ import { Shield, BookOpen, UserCircle, RefreshCcw } from 'lucide-react'
 import StudentDetail from './StudentDetail'
 import StudentList from './StudentList'
 import UserManagement from './UserManagement'
-import StudentProfile from './StudentProfile' // YENİ EKLENDİ
+import StudentProfile from './StudentProfile'
+import CourseManagement from './CourseManagement' // YENİ EKLENDİ
 import './App.css'
 
-// Demo Kullanıcıları (Backend Seeder'daki ID'lere göre ayarlandı)
+// Demo Kullanıcıları
 const ACADEMICIAN_USER = { id: 4, name: 'Prof. Dr. Ahmet Hoca', role: 'ACADEMICIAN' }
 const STUDENT_USER = { id: 1, name: 'Ayberk Arda', role: 'STUDENT' }
 
@@ -26,7 +27,6 @@ const StudentRoute = ({ children, currentUser }) => {
 function App() {
   const [currentUser, setCurrentUser] = useState(ACADEMICIAN_USER)
 
-  // DEMO İÇİN KULLANICI DEĞİŞTİRME FONKSİYONU
   const toggleRole = () => {
     setCurrentUser(currentUser.role === 'ACADEMICIAN' ? STUDENT_USER : ACADEMICIAN_USER)
   }
@@ -34,7 +34,7 @@ function App() {
   return (
       <Router>
         <div className="app-layout">
-          {/* YAN MENÜ (Sidebar) */}
+          {/* YAN MENÜ */}
           <nav className="sidebar">
             <div className="brand">
               <BookOpen size={24} className="text-primary" />
@@ -48,8 +48,8 @@ function App() {
               {currentUser.role === 'ACADEMICIAN' && (
                   <>
                     <li><Link to="/students">🎓 Öğrenci Yönetimi</Link></li>
+                    <li><Link to="/courses">📚 Ders Yönetimi</Link></li> {/* YENİ EKLENDİ */}
                     <li><Link to="/users">🛡️ Yetkilendirme</Link></li>
-                    <li><Link to="/courses">📚 Ders Yönetimi</Link></li>
                   </>
               )}
 
@@ -69,10 +69,9 @@ function App() {
               </div>
             </div>
 
-            {/* PORTFOLYO ŞOVU: HIZLI ROL DEĞİŞTİRİCİ */}
             <button
                 onClick={toggleRole}
-                style={{ marginTop: '1rem', width: '100%', padding: '0.5rem', backgroundColor: '#374151', color: 'white', fontSize: '12px', border: '1px solid #4b5563' }}
+                style={{ marginTop: '1rem', width: '100%', padding: '0.5rem', backgroundColor: '#374151', color: 'white', fontSize: '12px', border: '1px solid #4b5563', borderRadius: '0.5rem', cursor: 'pointer' }}
             >
               <RefreshCcw size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }}/>
               {currentUser.role === 'ACADEMICIAN' ? 'Öğrenci Hesabına Geç' : 'Hoca Hesabına Geç'}
@@ -82,12 +81,13 @@ function App() {
           {/* ANA İÇERİK ALANI */}
           <main className="content-area">
             <Routes>
-              <Route path="/" element={<div className="card"><h2>Hoş Geldiniz, {currentUser.name}</h2><p>Sol menüden işleminizi seçin. </p></div>} />
+              <Route path="/" element={<div className="card"><h2>Hoş Geldiniz, {currentUser.name}</h2><p>Sol menüden işleminizi seçin.</p></div>} />
 
               {/* AKADEMİSYEN ROTALARI */}
               <Route path="/students" element={<AcademicianRoute currentUser={currentUser}><StudentList /></AcademicianRoute>} />
               <Route path="/students/:id" element={<AcademicianRoute currentUser={currentUser}><StudentDetail /></AcademicianRoute>} />
               <Route path="/users" element={<AcademicianRoute currentUser={currentUser}><UserManagement /></AcademicianRoute>} />
+              <Route path="/courses" element={<AcademicianRoute currentUser={currentUser}><CourseManagement /></AcademicianRoute>} /> {/* YENİ EKLENDİ */}
 
               {/* ÖĞRENCİ ROTALARI */}
               <Route path="/my-profile" element={<StudentRoute currentUser={currentUser}><StudentProfile currentUser={currentUser} /></StudentRoute>} />

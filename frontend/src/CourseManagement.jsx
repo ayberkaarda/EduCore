@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import toast, { Toaster } from 'react-hot-toast'
 import { Book, Plus, Loader2, Calendar } from 'lucide-react'
-import CourseManagement from './CourseManagement'
 
 const API_BASE = 'http://localhost:8080/api/v1'
 

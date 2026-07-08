@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+// DİKKAT: Plus ikonu burada eklendi!
 import { Search, ChevronRight, User, Loader2, Plus } from 'lucide-react'
+import toast, { Toaster } from 'react-hot-toast'
 import { useDebounce } from './hooks/useDebounce'
 
 const API_BASE = 'http://localhost:8080/api/v1'
@@ -10,8 +12,9 @@ export default function StudentList() {
     const [students, setStudents] = useState([])
     const [searchTerm, setSearchTerm] = useState('')
     const [isLoading, setIsLoading] = useState(true)
+    const [isModalOpen, setIsModalOpen] = useState(false)
+    const [newStudent, setNewStudent] = useState({ firstName: '', lastName: '' }) // Numarayı Java atayacak
 
-    // Custom Hook'umuzu kullanıyoruz (500ms gecikme)
     const debouncedSearchTerm = useDebounce(searchTerm, 500)
     const navigate = useNavigate()
 
@@ -22,44 +25,43 @@ export default function StudentList() {
     const fetchStudents = async (search) => {
         setIsLoading(true)
         try {
-            // Backend'deki sayfalamalı ve filtreli endpoint'e istek atıyoruz
             const response = await axios.get(`${API_BASE}/accounts/students?search=${search}&page=0&size=50`)
-            setStudents(response.data.content) // Spring Boot Page objesi 'content' dizisi döner
+            setStudents(response.data.content)
         } catch (error) {
-            console.error("Öğrenciler yüklenemedi", error)
+            toast.error("Öğrenciler yüklenemedi")
         } finally {
             setIsLoading(false)
         }
     }
-    const [isModalOpen, setIsModalOpen] = useState(false)
-    const [newStudent, setNewStudent] = useState({ firstName: '', lastName: '', studentNumber: '' })
+
     const handleCreateStudent = async (e) => {
         e.preventDefault()
         try {
             await axios.post(`${API_BASE}/accounts/student`, newStudent)
-            toast.success('Öğrenci başarıyla oluşturuldu! ID otomatik atandı.')
+            toast.success('Öğrenci başarıyla eklendi! ID otomatik atandı.')
             setIsModalOpen(false)
-            setNewStudent({ firstName: '', lastName: '', studentNumber: '' })
-            fetchStudents(debouncedSearchTerm) // Listeyi hemen tazele
+            setNewStudent({ firstName: '', lastName: '' })
+            fetchStudents(debouncedSearchTerm) // Listeyi tazele
         } catch (error) {
-            toast.error('Öğrenci numarası kullanılıyor olabilir veya eksik bilgi girdiniz.')
+            toast.error('Bir hata oluştu.')
         }
     }
 
     return (
         <div className="card">
+            <Toaster />
             <div className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h2>Öğrenci Yönetimi</h2>
                     <p className="text-gray">Ders ataması yapmak için listeden bir öğrenci seçin.</p>
                 </div>
 
-                {/* ARAMA KUTUSU - UI/UX FIX */}
-                <div className="search-box" style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>
-                    <Search className="search-icon" size={20} style={{ position: 'absolute', left: '10px', top: '10px', color: '#6b7280' }} />
+                {/* ARAMA KUTUSU */}
+                <div className="search-box" style={{ position: 'relative', width: '300px', maxWidth: '100%', flexShrink: 0 }}>
+                    <Search size={20} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#6b7280' }} />
                     <input
                         type="text"
-                        placeholder="Ara..."
+                        placeholder="İsim veya Soyisim ara..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={{
@@ -72,13 +74,14 @@ export default function StudentList() {
                         }}
                     />
                 </div>
+
                 <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
                     <Plus size={18} /> Yeni Öğrenci
                 </button>
             </div>
 
             {/* ÖĞRENCİ LİSTESİ */}
-            <div className="table-responsive">
+            <div className="table-responsive" style={{marginTop: '1.5rem'}}>
                 {isLoading ? (
                     <div className="empty-state"><Loader2 className="spin text-gray" size={32} /><p>Yükleniyor...</p></div>
                 ) : students.length === 0 ? (
@@ -94,8 +97,8 @@ export default function StudentList() {
                         </thead>
                         <tbody>
                         {students.map((student) => (
-                            <tr key={student.id} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background 0.2s' }} className="table-row-hover">
-                                <td style={{ padding: '1rem', fontWeight: '500' }}>#{student.studentNumber}</td>
+                            <tr key={student.id} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background 0.2s' }}>
+                                <td style={{ padding: '1rem', fontWeight: '500' }}>#{student.studentNumber || 'Yok'}</td>
                                 <td style={{ padding: '1rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                         <div style={{ backgroundColor: '#f3f4f6', padding: '0.5rem', borderRadius: '50%' }}><User size={18} color="#4f46e5"/></div>
@@ -108,7 +111,7 @@ export default function StudentList() {
                                         onClick={() => navigate(`/students/${student.id}`)}
                                         style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
                                     >
-                                        Detaylar <ChevronRight size={16} />
+                                        Ders Seçimi <ChevronRight size={16} />
                                     </button>
                                 </td>
                             </tr>
@@ -117,13 +120,14 @@ export default function StudentList() {
                     </table>
                 )}
             </div>
-            {/* YENİ ÖĞRENCİ MODALI - UI FIX */}
+
+            {/* YENİ ÖĞRENCİ MODALI */}
             {isModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content" style={{ padding: '2.5rem' }}>
                         <h3 style={{ marginTop: 0, marginBottom: '0.5rem', color: '#111827' }}>Yeni Öğrenci Ekle</h3>
                         <p className="text-gray" style={{ fontSize: '0.85rem', marginBottom: '1.5rem', lineHeight: '1.4' }}>
-                            Öğrenci numarası ve kimlik ID'si sistem tarafından otomatik olarak atanacaktır.
+                            Öğrenci numarası sistem tarafından otomatik atanacaktır.
                         </p>
                         <form onSubmit={handleCreateStudent}>
                             <div style={{ marginBottom: '1.2rem' }}>
