@@ -40,15 +40,22 @@ export default function StudentList() {
                     <p className="text-gray">Ders ataması yapmak için listeden bir öğrenci seçin.</p>
                 </div>
 
-                {/* ARAMA KUTUSU */}
-                <div className="search-box" style={{ position: 'relative', width: '300px' }}>
+                {/* ARAMA KUTUSU - UI/UX FIX */}
+                <div className="search-box" style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>
                     <Search className="search-icon" size={20} style={{ position: 'absolute', left: '10px', top: '10px', color: '#6b7280' }} />
                     <input
                         type="text"
-                        placeholder="İsim, Soyisim veya No ara..."
+                        placeholder="Ara..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.5rem', borderRadius: '0.5rem', border: '1px solid #e5e7eb', outline: 'none' }}
+                        style={{
+                            width: '100%',
+                            padding: '0.6rem 1rem 0.6rem 2.5rem',
+                            borderRadius: '0.5rem',
+                            border: '1px solid #e5e7eb',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                        }}
                     />
                 </div>
             </div>
