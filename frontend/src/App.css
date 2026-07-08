@@ -263,3 +263,30 @@ button:disabled, .btn-disabled {
   .user-profile { display: none; }
   .content-area { padding: 1rem; }
 }
+/* --- UI/UX MÜHENDİSLİK DÜZELTMELERİ --- */
+
+/* 1. Başlık ve Arama Kutusunun ekrana göre esnemesini sağlar (Patlamayı önler) */
+.detail-header {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 1.5rem;
+}
+
+.detail-header > div:first-child {
+  flex: 1;
+  min-width: 250px;
+}
+
+/* 2. Arama kutusunun mobilde ve dar ekranlarda düzgün durmasını sağlar */
+.search-box {
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 320px;
+}
+
+/* 3. Sağ veya Sol taraftaki liste boş kaldığında kartların devasa şekilde uzamasını engeller */
+.course-grid {
+  align-items: start !important;
+}
