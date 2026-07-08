@@ -34,7 +34,7 @@ function App() {
           <nav className="sidebar">
             <div className="brand">
               <BookOpen size={24} className="text-primary" />
-              <h2>EduCore</h2>
+              <h2 style={{color: "white"}}>EduCore</h2>
             </div>
 
             <ul className="nav-links">
