@@ -31,6 +31,20 @@ export default function StudentList() {
             setIsLoading(false)
         }
     }
+    const [isModalOpen, setIsModalOpen] = useState(false)
+    const [newStudent, setNewStudent] = useState({ firstName: '', lastName: '', studentNumber: '' })
+    const handleCreateStudent = async (e) => {
+        e.preventDefault()
+        try {
+            await axios.post(`${API_BASE}/accounts/student`, newStudent)
+            toast.success('Öğrenci başarıyla oluşturuldu! ID otomatik atandı.')
+            setIsModalOpen(false)
+            setNewStudent({ firstName: '', lastName: '', studentNumber: '' })
+            fetchStudents(debouncedSearchTerm) // Listeyi hemen tazele
+        } catch (error) {
+            toast.error('Öğrenci numarası kullanılıyor olabilir veya eksik bilgi girdiniz.')
+        }
+    }
 
     return (
         <div className="card">
@@ -58,6 +72,9 @@ export default function StudentList() {
                         }}
                     />
                 </div>
+                <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
+                    <Plus size={18} /> Yeni Öğrenci
+                </button>
             </div>
 
             {/* ÖĞRENCİ LİSTESİ */}
@@ -100,6 +117,33 @@ export default function StudentList() {
                     </table>
                 )}
             </div>
+            {/* YENİ ÖĞRENCİ MODALI */}
+            {isModalOpen && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h3>Yeni Öğrenci Ekle</h3>
+                        <p className="text-gray" style={{fontSize: '0.875rem', marginBottom: '1rem'}}>ID sistemi tarafından otomatik atanacaktır.</p>
+                        <form onSubmit={handleCreateStudent}>
+                            <div className="form-group">
+                                <label>Ad</label>
+                                <input required type="text" value={newStudent.firstName} onChange={(e) => setNewStudent({ ...newStudent, firstName: e.target.value })} />
+                            </div>
+                            <div className="form-group">
+                                <label>Soyad</label>
+                                <input required type="text" value={newStudent.lastName} onChange={(e) => setNewStudent({ ...newStudent, lastName: e.target.value })} />
+                            </div>
+                            <div className="form-group">
+                                <label>Öğrenci Numarası</label>
+                                <input required type="text" placeholder="Örn: 2401050" value={newStudent.studentNumber} onChange={(e) => setNewStudent({ ...newStudent, studentNumber: e.target.value })} />
+                            </div>
+                            <div className="modal-actions">
+                                <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>İptal</button>
+                                <button type="submit" className="btn-primary">Kaydet</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
