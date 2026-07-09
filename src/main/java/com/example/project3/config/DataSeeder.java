@@ -17,14 +17,6 @@ public class DataSeeder {
     @Bean
     CommandLineRunner initDatabase(AccountRepository accountRepo, CourseRepository courseRepo) {
         return args -> {
-            if (courseRepo.count() == 0) {
-                courseRepo.saveAll(List.of(
-                        Course.builder().name("Advanced Web Development").term("2026/1").build(),
-                        Course.builder().name("Data Structures and Algorithms").term("2026/1").build(),
-                        Course.builder().name("Systems Programming (Rust)").term("2026/2").build(),
-                        Course.builder().name("Fundamentals of AI").term("2026/2").build()
-                ));
-            }
 
             if (accountRepo.count() == 0) {
                 accountRepo.saveAll(List.of(

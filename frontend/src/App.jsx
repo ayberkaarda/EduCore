@@ -1,23 +1,39 @@
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
-import { useState } from 'react'
-import { BookOpen, Settings, RefreshCcw, ShieldCheck } from 'lucide-react'
+import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { BookOpen, ShieldCheck, LogOut } from 'lucide-react'
+import axios from 'axios'
 import StudentDetail from './StudentDetail'
 import StudentList from './StudentList'
 import CourseManagement from './CourseManagement'
+import Login from './Login'
 import './App.css'
 
-// Global Uygulama Modları
-const APP_MODES = {
-  ADMIN: { role: 'ADMIN', label: 'Admin (Full Access)' },
-  USER: { role: 'USER', label: 'User (View Only)' }
-}
-
 function App() {
-  const [appMode, setAppMode] = useState(APP_MODES.ADMIN)
+  const [authData, setAuthData] = useState({
+    token: localStorage.getItem('token'),
+    role: localStorage.getItem('role'),
+    name: localStorage.getItem('name')
+  })
 
-  // Tek tuşla Admin/User arası geçiş
-  const toggleMode = () => setAppMode(appMode.role === 'ADMIN' ? APP_MODES.USER : APP_MODES.ADMIN)
+  // Sayfa yenilendiğinde token varsa Axios'a tekrar tanımla
+  useEffect(() => {
+    if (authData.token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${authData.token}`
+    }
+  }, [authData.token])
 
+  const handleLogout = () => {
+    localStorage.clear()
+    delete axios.defaults.headers.common['Authorization']
+    setAuthData({ token: null, role: null, name: null })
+  }
+
+  // Giriş Yapılmamışsa direkt Login sayfasına yönlendir
+  if (!authData.token) {
+    return <Login setAuthData={setAuthData} />
+  }
+
+  // Güvenlik Korumalı Yapı
   return (
       <Router>
         <div className="app-layout">
@@ -33,28 +49,27 @@ function App() {
               <li><Link to="/courses">📚 Courses</Link></li>
             </ul>
 
-            {/* Alt Taraf: Mod Göstergesi ve Değiştirme Butonu */}
             <div className="user-profile">
-              <ShieldCheck size={28} color={appMode.role === 'ADMIN' ? '#10b981' : '#6b7280'} />
+              <ShieldCheck size={28} color={authData.role === 'ADMIN' ? '#10b981' : '#6b7280'} />
               <div style={{ flex: 1 }}>
-                <p className="fw-500" style={{ fontSize: '13px', color: '#fff' }}>Current Mode:</p>
-                <p style={{ fontSize: '12px', color: appMode.role === 'ADMIN' ? '#10b981' : '#9ca3af' }}>{appMode.label}</p>
+                <p className="fw-500" style={{ fontSize: '13px', color: '#fff' }}>Logged in as:</p>
+                <p style={{ fontSize: '12px', color: authData.role === 'ADMIN' ? '#10b981' : '#9ca3af' }}>{authData.name} ({authData.role})</p>
               </div>
             </div>
 
-            <button onClick={toggleMode} className="btn-secondary" style={{ marginTop: '1rem', width: '100%', padding: '0.6rem', fontSize: '0.8rem', backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151' }}>
-              <RefreshCcw size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '5px' }} />
-              Switch to {appMode.role === 'ADMIN' ? 'User' : 'Admin'}
+            <button onClick={handleLogout} className="btn-secondary" style={{ marginTop: '1rem', width: '100%', padding: '0.6rem', fontSize: '0.8rem', backgroundColor: '#fee2e2', color: '#b91c1c', border: 'none' }}>
+              <LogOut size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '5px' }} />
+              Logout
             </button>
           </nav>
 
           <main className="content-area">
             <Routes>
-              <Route path="/" element={<div className="card"><h2>Welcome to EduCore</h2><p>You are viewing the system in <strong>{appMode.label}</strong>.</p></div>} />
-              {/* Uygulama modunu sayfalara gönderiyoruz ki yetkileri bilsinler */}
-              <Route path="/students" element={<StudentList appMode={appMode} />} />
-              <Route path="/students/:id" element={<StudentDetail appMode={appMode} />} />
-              <Route path="/courses" element={<CourseManagement appMode={appMode} />} />
+              <Route path="/" element={<div className="card"><h2>Welcome to EduCore, {authData.name}</h2><p>You have successfully logged in.</p></div>} />
+              <Route path="/students" element={<StudentList appMode={{ role: authData.role }} />} />
+              <Route path="/students/:id" element={<StudentDetail appMode={{ role: authData.role }} />} />
+              <Route path="/courses" element={<CourseManagement appMode={{ role: authData.role }} />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
         </div>
