@@ -8,30 +8,34 @@ import { useDebounce } from './hooks/useDebounce'
 const API_BASE = 'http://localhost:8080/api/v1'
 
 export default function StudentList({ appMode }) {
-    const isAdmin = appMode.role === 'ADMIN' // YETKİ KONTROLÜ
+    const isAdmin = appMode.role === 'ADMIN'
 
     const [students, setStudents] = useState([])
     const [searchTerm, setSearchTerm] = useState('')
     const [isLoading, setIsLoading] = useState(true)
 
-    // Modallar
+    // SAYFALAMA STATE'LERİ
+    const [page, setPage] = useState(0)
+    const [totalPages, setTotalPages] = useState(1)
+    const pageSize = 8
+
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-
-    // Form Verileri
     const [newStudent, setNewStudent] = useState({ firstName: '', lastName: '' })
     const [editStudent, setEditStudent] = useState({ id: null, firstName: '', lastName: '' })
 
     const debouncedSearchTerm = useDebounce(searchTerm, 500)
     const navigate = useNavigate()
 
-    useEffect(() => { fetchStudents(debouncedSearchTerm) }, [debouncedSearchTerm])
+    useEffect(() => { setPage(0) }, [debouncedSearchTerm]) // Arama yapınca sayfa 1'e dönsün
+    useEffect(() => { fetchStudents(debouncedSearchTerm, page) }, [debouncedSearchTerm, page])
 
-    const fetchStudents = async (search) => {
+    const fetchStudents = async (search, currentPage) => {
         setIsLoading(true)
         try {
-            const response = await axios.get(`${API_BASE}/accounts/students?search=${search}&page=0&size=50`)
+            const response = await axios.get(`${API_BASE}/accounts/students?search=${search}&page=${currentPage}&size=${pageSize}`)
             setStudents(response.data.content)
+            setTotalPages(response.data.totalPages)
         } catch (error) {
             toast.error("Failed to load students")
         } finally {
@@ -39,7 +43,6 @@ export default function StudentList({ appMode }) {
         }
     }
 
-    // --- YENİ VERİ İŞLEMLERİ ---
     const handleCreateStudent = async (e) => {
         e.preventDefault()
         try {
@@ -47,7 +50,7 @@ export default function StudentList({ appMode }) {
             toast.success('Student successfully added!')
             setIsModalOpen(false)
             setNewStudent({ firstName: '', lastName: '' })
-            fetchStudents(debouncedSearchTerm)
+            fetchStudents(debouncedSearchTerm, page)
         } catch (error) { toast.error('Error occurred.') }
     }
 
@@ -56,7 +59,7 @@ export default function StudentList({ appMode }) {
         try {
             await axios.delete(`${API_BASE}/accounts/${id}`)
             toast.success('Student deleted successfully!')
-            fetchStudents(debouncedSearchTerm)
+            fetchStudents(debouncedSearchTerm, page)
         } catch (error) { toast.error('Failed to delete student.') }
     }
 
@@ -71,7 +74,7 @@ export default function StudentList({ appMode }) {
             await axios.put(`${API_BASE}/accounts/${editStudent.id}`, { firstName: editStudent.firstName, lastName: editStudent.lastName })
             toast.success('Student updated successfully!')
             setIsEditModalOpen(false)
-            fetchStudents(debouncedSearchTerm)
+            fetchStudents(debouncedSearchTerm, page)
         } catch (error) { toast.error('Failed to update student.') }
     }
 
@@ -81,7 +84,7 @@ export default function StudentList({ appMode }) {
             <div className="detail-header">
                 <div>
                     <h2>Student Management</h2>
-                    <p className="text-gray">Select a student from the list to assign courses.</p>
+                    <p className="text-gray">Select a student from the list to view courses.</p>
                 </div>
 
                 <div className="search-box" style={{ position: 'relative', width: '300px' }}>
@@ -89,7 +92,6 @@ export default function StudentList({ appMode }) {
                     <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.5rem', borderRadius: '0.5rem', border: '1px solid #e5e7eb', outline: 'none', boxSizing: 'border-box' }} />
                 </div>
 
-                {/* SADECE ADMIN GÖREBİLİR */}
                 {isAdmin && (
                     <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
                         <Plus size={18} /> New Student
@@ -101,51 +103,54 @@ export default function StudentList({ appMode }) {
                 {isLoading ? ( <div className="empty-state"><Loader2 className="spin text-gray" size={32} /></div> )
                     : students.length === 0 ? ( <div className="empty-state"><p>No students found.</p></div> )
                         : (
-                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                                <thead>
-                                <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                                    <th style={{ padding: '1rem', color: '#6b7280' }}>ID</th>
-                                    <th style={{ padding: '1rem', color: '#6b7280' }}>Full Name</th>
-                                    <th style={{ padding: '1rem', textAlign: 'right', color: '#6b7280' }}>Actions</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                {students.map((student) => (
-                                    <tr key={student.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                        <td style={{ padding: '1rem', fontWeight: '500' }}>#{student.studentNumber || 'N/A'}</td>
-                                        <td style={{ padding: '1rem' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                <div style={{ backgroundColor: '#f3f4f6', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={18} color="#4f46e5"/></div>
-                                                {student.firstName} {student.lastName}
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: '1rem', textAlign: 'right' }}>
-                                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                <button className="btn-secondary" onClick={() => navigate(`/students/${student.id}`)} style={{ padding: '0.4rem 0.8rem' }}>
-                                                    Courses <ChevronRight size={16} />
-                                                </button>
-
-                                                {/* SADECE ADMIN SİL/DÜZENLE GÖREBİLİR */}
-                                                {isAdmin && (
-                                                    <>
-                                                        <button className="btn-secondary" onClick={() => openEditModal(student)} style={{ padding: '0.4rem', backgroundColor: '#fef3c7', color: '#b45309', border: 'none' }} title="Edit">
-                                                            <Edit size={16} />
-                                                        </button>
-                                                        <button className="btn-secondary" onClick={() => handleDelete(student.id)} style={{ padding: '0.4rem', backgroundColor: '#fee2e2', color: '#b91c1c', border: 'none' }} title="Delete">
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </td>
+                            <>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                    <thead>
+                                    <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                                        <th style={{ padding: '1rem', color: '#6b7280' }}>ID</th>
+                                        <th style={{ padding: '1rem', color: '#6b7280' }}>Full Name</th>
+                                        <th style={{ padding: '1rem', textAlign: 'right', color: '#6b7280' }}>Actions</th>
                                     </tr>
-                                ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                    {students.map((student) => (
+                                        <tr key={student.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                                            <td style={{ padding: '1rem', fontWeight: '500' }}>#{student.studentNumber || 'N/A'}</td>
+                                            <td style={{ padding: '1rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                    <div style={{ backgroundColor: '#f3f4f6', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={18} color="#4f46e5"/></div>
+                                                    {student.firstName} {student.lastName}
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '1rem', textAlign: 'right' }}>
+                                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                    <button className="btn-secondary" onClick={() => navigate(`/students/${student.id}`)} style={{ padding: '0.4rem 0.8rem' }}>
+                                                        Courses <ChevronRight size={16} />
+                                                    </button>
+
+                                                    {isAdmin && (
+                                                        <>
+                                                            <button className="btn-secondary" onClick={() => openEditModal(student)} style={{ padding: '0.4rem', backgroundColor: '#fef3c7', color: '#b45309', border: 'none' }} title="Edit"><Edit size={16} /></button>
+                                                            <button className="btn-secondary" onClick={() => handleDelete(student.id)} style={{ padding: '0.4rem', backgroundColor: '#fee2e2', color: '#b91c1c', border: 'none' }} title="Delete"><Trash2 size={16} /></button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    </tbody>
+                                </table>
+
+                                {/* SAYFALAMA BUTONLARI */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', padding: '0 1rem' }}>
+                                    <button className="btn-secondary" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} style={{ padding: '0.4rem 1rem' }}>Previous</button>
+                                    <span className="text-gray" style={{ fontSize: '0.875rem' }}>Page {page + 1} of {totalPages === 0 ? 1 : totalPages}</span>
+                                    <button className="btn-secondary" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} style={{ padding: '0.4rem 1rem' }}>Next</button>
+                                </div>
+                            </>
                         )}
             </div>
 
-            {/* --- ADD MODAL --- */}
             {isModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">
@@ -159,7 +164,6 @@ export default function StudentList({ appMode }) {
                 </div>
             )}
 
-            {/* --- EDIT MODAL --- */}
             {isEditModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">

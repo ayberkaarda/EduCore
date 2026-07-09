@@ -6,6 +6,7 @@ import StudentDetail from './StudentDetail'
 import StudentList from './StudentList'
 import CourseManagement from './CourseManagement'
 import Login from './Login'
+import Home from './Home'
 import './App.css'
 
 function App() {
@@ -15,11 +16,25 @@ function App() {
     name: localStorage.getItem('name')
   })
 
-  // Sayfa yenilendiğinde token varsa Axios'a tekrar tanımla
   useEffect(() => {
     if (authData.token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${authData.token}`
     }
+
+    // GÜVENLİK: Eğer sunucu 401 Unauthorized dönerse (token süresi dolduysa) otomatik çıkış yap
+    const interceptor = axios.interceptors.response.use(
+        (response) => response,
+        (error) => {
+          if (error.response && error.response.status === 401) {
+            localStorage.clear()
+            delete axios.defaults.headers.common['Authorization']
+            setAuthData({ token: null, role: null, name: null })
+          }
+          return Promise.reject(error)
+        }
+    )
+
+    return () => axios.interceptors.response.eject(interceptor)
   }, [authData.token])
 
   const handleLogout = () => {
@@ -28,12 +43,8 @@ function App() {
     setAuthData({ token: null, role: null, name: null })
   }
 
-  // Giriş Yapılmamışsa direkt Login sayfasına yönlendir
-  if (!authData.token) {
-    return <Login setAuthData={setAuthData} />
-  }
+  if (!authData.token) return <Login setAuthData={setAuthData} />
 
-  // Güvenlik Korumalı Yapı
   return (
       <Router>
         <div className="app-layout">
@@ -65,7 +76,7 @@ function App() {
 
           <main className="content-area">
             <Routes>
-              <Route path="/" element={<div className="card"><h2>Welcome to EduCore, {authData.name}</h2><p>You have successfully logged in.</p></div>} />
+              <Route path="/" element={<Home authData={authData} />} />
               <Route path="/students" element={<StudentList appMode={{ role: authData.role }} />} />
               <Route path="/students/:id" element={<StudentDetail appMode={{ role: authData.role }} />} />
               <Route path="/courses" element={<CourseManagement appMode={{ role: authData.role }} />} />
