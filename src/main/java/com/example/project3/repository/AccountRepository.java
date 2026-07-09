@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface AccountRepository extends JpaRepository<Account, Long> {
-
+    java.util.Optional<Account> findByUsername(String username);
     @Query("SELECT a FROM Account a WHERE a.role = :role AND " +
             "(LOWER(a.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "LOWER(a.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
