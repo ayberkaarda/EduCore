@@ -1,32 +1,22 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import { useState } from 'react'
-import { Shield, BookOpen, UserCircle, RefreshCcw } from 'lucide-react'
+import { BookOpen, Settings, RefreshCcw, ShieldCheck } from 'lucide-react'
 import StudentDetail from './StudentDetail'
 import StudentList from './StudentList'
-import UserManagement from './UserManagement'
-import StudentProfile from './StudentProfile'
 import CourseManagement from './CourseManagement'
 import './App.css'
 
-const ACADEMICIAN_USER = { id: 4, name: 'Prof. Dr. Ahmet Smith', role: 'ACADEMICIAN' }
-const STUDENT_USER = { id: 1, name: 'Ayberk Arda', role: 'STUDENT' }
-
-const AcademicianRoute = ({ children, currentUser }) => {
-  if (currentUser.role !== 'ACADEMICIAN') return <Navigate to="/unauthorized" replace />
-  return children
-}
-
-const StudentRoute = ({ children, currentUser }) => {
-  if (currentUser.role !== 'STUDENT') return <Navigate to="/unauthorized" replace />
-  return children
+// Global Uygulama Modları
+const APP_MODES = {
+  ADMIN: { role: 'ADMIN', label: 'Admin (Full Access)' },
+  USER: { role: 'USER', label: 'User (View Only)' }
 }
 
 function App() {
-  const [currentUser, setCurrentUser] = useState(ACADEMICIAN_USER)
+  const [appMode, setAppMode] = useState(APP_MODES.ADMIN)
 
-  const toggleRole = () => {
-    setCurrentUser(currentUser.role === 'ACADEMICIAN' ? STUDENT_USER : ACADEMICIAN_USER)
-  }
+  // Tek tuşla Admin/User arası geçiş
+  const toggleMode = () => setAppMode(appMode.role === 'ADMIN' ? APP_MODES.USER : APP_MODES.ADMIN)
 
   return (
       <Router>
@@ -34,56 +24,37 @@ function App() {
           <nav className="sidebar">
             <div className="brand">
               <BookOpen size={24} className="text-primary" />
-              <h2 style={{color: "white"}}>EduCore</h2>
+              <h2>EduCore</h2>
             </div>
 
             <ul className="nav-links">
               <li><Link to="/">🏠 Home</Link></li>
-
-              {currentUser.role === 'ACADEMICIAN' && (
-                  <>
-                    <li><Link to="/students">🎓 Student Management</Link></li>
-                    <li><Link to="/courses">📚 Course Management</Link></li>
-                    <li><Link to="/users">🛡️ Role Management</Link></li>
-                  </>
-              )}
-
-              {currentUser.role === 'STUDENT' && (
-                  <li><Link to="/my-profile">👤 My Profile & Courses</Link></li>
-              )}
+              <li><Link to="/students">🎓 Students</Link></li>
+              <li><Link to="/courses">📚 Courses</Link></li>
             </ul>
 
+            {/* Alt Taraf: Mod Göstergesi ve Değiştirme Butonu */}
             <div className="user-profile">
-              <UserCircle size={32} />
+              <ShieldCheck size={28} color={appMode.role === 'ADMIN' ? '#10b981' : '#6b7280'} />
               <div style={{ flex: 1 }}>
-                <p className="fw-500" style={{ fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {currentUser.name}
-                </p>
-                <p className="text-gray" style={{fontSize: '12px'}}>{currentUser.role}</p>
+                <p className="fw-500" style={{ fontSize: '13px', color: '#fff' }}>Current Mode:</p>
+                <p style={{ fontSize: '12px', color: appMode.role === 'ADMIN' ? '#10b981' : '#9ca3af' }}>{appMode.label}</p>
               </div>
             </div>
 
-            <button
-                onClick={toggleRole}
-                style={{ marginTop: '1rem', width: '100%', padding: '0.5rem', backgroundColor: '#374151', color: 'white', fontSize: '12px', border: '1px solid #4b5563', borderRadius: '0.5rem', cursor: 'pointer' }}
-            >
-              <RefreshCcw size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }}/>
-              {currentUser.role === 'ACADEMICIAN' ? 'Switch to Student' : 'Switch to Academician'}
+            <button onClick={toggleMode} className="btn-secondary" style={{ marginTop: '1rem', width: '100%', padding: '0.6rem', fontSize: '0.8rem', backgroundColor: '#1f2937', color: 'white', border: '1px solid #374151' }}>
+              <RefreshCcw size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '5px' }} />
+              Switch to {appMode.role === 'ADMIN' ? 'User' : 'Admin'}
             </button>
           </nav>
 
           <main className="content-area">
             <Routes>
-              <Route path="/" element={<div className="card"><h2>Welcome, {currentUser.name}</h2><p>Please select an action from the left menu. Use the switch button below to test the roles.</p></div>} />
-
-              <Route path="/students" element={<AcademicianRoute currentUser={currentUser}><StudentList /></AcademicianRoute>} />
-              <Route path="/students/:id" element={<AcademicianRoute currentUser={currentUser}><StudentDetail /></AcademicianRoute>} />
-              <Route path="/users" element={<AcademicianRoute currentUser={currentUser}><UserManagement /></AcademicianRoute>} />
-              <Route path="/courses" element={<AcademicianRoute currentUser={currentUser}><CourseManagement /></AcademicianRoute>} />
-
-              <Route path="/my-profile" element={<StudentRoute currentUser={currentUser}><StudentProfile currentUser={currentUser} /></StudentRoute>} />
-
-              <Route path="/unauthorized" element={<div className="card empty-state"><Shield size={48} color="red" /><h2>Access Denied</h2><p>You do not have permission to view this page.</p></div>} />
+              <Route path="/" element={<div className="card"><h2>Welcome to EduCore</h2><p>You are viewing the system in <strong>{appMode.label}</strong>.</p></div>} />
+              {/* Uygulama modunu sayfalara gönderiyoruz ki yetkileri bilsinler */}
+              <Route path="/students" element={<StudentList appMode={appMode} />} />
+              <Route path="/students/:id" element={<StudentDetail appMode={appMode} />} />
+              <Route path="/courses" element={<CourseManagement appMode={appMode} />} />
             </Routes>
           </main>
         </div>
