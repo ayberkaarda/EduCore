@@ -94,7 +94,7 @@ export default function UserManagement() {
                                 </td>
                                 <td style={{ padding: '1rem', textAlign: 'right' }}>
                                     <select
-                                        value={user.role}
+                                        value={R.role}
                                         onChange={(e) => handleRoleChange(user.id, e.target.value)}
                                         style={{ padding: '0.4rem', borderRadius: '0.375rem', border: '1px solid #d1d5db', outline: 'none', cursor: 'pointer' }}
                                     >
