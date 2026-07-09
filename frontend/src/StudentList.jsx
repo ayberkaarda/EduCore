@@ -14,20 +14,21 @@ export default function StudentList({ appMode }) {
     const [searchTerm, setSearchTerm] = useState('')
     const [isLoading, setIsLoading] = useState(true)
 
-    // SAYFALAMA STATE'LERİ
     const [page, setPage] = useState(0)
     const [totalPages, setTotalPages] = useState(1)
     const pageSize = 8
 
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-    const [newStudent, setNewStudent] = useState({ firstName: '', lastName: '' })
-    const [editStudent, setEditStudent] = useState({ id: null, firstName: '', lastName: '' })
+
+    // DÜZELTME: studentNumber alanları eklendi
+    const [newStudent, setNewStudent] = useState({ firstName: '', lastName: '', studentNumber: '' })
+    const [editStudent, setEditStudent] = useState({ id: null, firstName: '', lastName: '', studentNumber: '' })
 
     const debouncedSearchTerm = useDebounce(searchTerm, 500)
     const navigate = useNavigate()
 
-    useEffect(() => { setPage(0) }, [debouncedSearchTerm]) // Arama yapınca sayfa 1'e dönsün
+    useEffect(() => { setPage(0) }, [debouncedSearchTerm])
     useEffect(() => { fetchStudents(debouncedSearchTerm, page) }, [debouncedSearchTerm, page])
 
     const fetchStudents = async (search, currentPage) => {
@@ -49,7 +50,7 @@ export default function StudentList({ appMode }) {
             await axios.post(`${API_BASE}/accounts/student`, newStudent)
             toast.success('Student successfully added!')
             setIsModalOpen(false)
-            setNewStudent({ firstName: '', lastName: '' })
+            setNewStudent({ firstName: '', lastName: '', studentNumber: '' })
             fetchStudents(debouncedSearchTerm, page)
         } catch (error) { toast.error('Error occurred.') }
     }
@@ -64,14 +65,18 @@ export default function StudentList({ appMode }) {
     }
 
     const openEditModal = (student) => {
-        setEditStudent({ id: student.id, firstName: student.firstName, lastName: student.lastName })
+        setEditStudent({ id: student.id, firstName: student.firstName, lastName: student.lastName, studentNumber: student.studentNumber || '' })
         setIsEditModalOpen(true)
     }
 
     const handleUpdateStudent = async (e) => {
         e.preventDefault()
         try {
-            await axios.put(`${API_BASE}/accounts/${editStudent.id}`, { firstName: editStudent.firstName, lastName: editStudent.lastName })
+            await axios.put(`${API_BASE}/accounts/${editStudent.id}`, {
+                firstName: editStudent.firstName,
+                lastName: editStudent.lastName,
+                studentNumber: editStudent.studentNumber
+            })
             toast.success('Student updated successfully!')
             setIsEditModalOpen(false)
             fetchStudents(debouncedSearchTerm, page)
@@ -141,7 +146,6 @@ export default function StudentList({ appMode }) {
                                     </tbody>
                                 </table>
 
-                                {/* SAYFALAMA BUTONLARI */}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', padding: '0 1rem' }}>
                                     <button className="btn-secondary" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} style={{ padding: '0.4rem 1rem' }}>Previous</button>
                                     <span className="text-gray" style={{ fontSize: '0.875rem' }}>Page {page + 1} of {totalPages === 0 ? 1 : totalPages}</span>
@@ -151,6 +155,7 @@ export default function StudentList({ appMode }) {
                         )}
             </div>
 
+            {/* DÜZELTME: Formlara Student ID inputları eklendi */}
             {isModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">
@@ -158,6 +163,7 @@ export default function StudentList({ appMode }) {
                         <form onSubmit={handleCreateStudent}>
                             <div className="form-group"><label>First Name</label><input required type="text" value={newStudent.firstName} onChange={e => setNewStudent({...newStudent, firstName: e.target.value})} /></div>
                             <div className="form-group"><label>Last Name</label><input required type="text" value={newStudent.lastName} onChange={e => setNewStudent({...newStudent, lastName: e.target.value})} /></div>
+                            <div className="form-group"><label>Student ID</label><input required type="text" placeholder="e.g. 2601005" value={newStudent.studentNumber} onChange={e => setNewStudent({...newStudent, studentNumber: e.target.value})} /></div>
                             <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary">Save</button></div>
                         </form>
                     </div>
@@ -171,6 +177,7 @@ export default function StudentList({ appMode }) {
                         <form onSubmit={handleUpdateStudent}>
                             <div className="form-group"><label>First Name</label><input required type="text" value={editStudent.firstName} onChange={e => setEditStudent({...editStudent, firstName: e.target.value})} /></div>
                             <div className="form-group"><label>Last Name</label><input required type="text" value={editStudent.lastName} onChange={e => setEditStudent({...editStudent, lastName: e.target.value})} /></div>
+                            <div className="form-group"><label>Student ID</label><input required type="text" value={editStudent.studentNumber} onChange={e => setEditStudent({...editStudent, studentNumber: e.target.value})} /></div>
                             <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary" style={{backgroundColor: '#f59e0b'}}>Update</button></div>
                         </form>
                     </div>

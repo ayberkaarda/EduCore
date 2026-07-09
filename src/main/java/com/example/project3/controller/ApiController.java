@@ -21,7 +21,7 @@ public class ApiController {
     @Autowired private AccountRepository accountRepository;
     @Autowired private CourseRepository courseRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
-    @Autowired private PasswordEncoder passwordEncoder; // YENİ: Şifreleri kriptolamak için
+    @Autowired private PasswordEncoder passwordEncoder;
 
     @GetMapping("/courses")
     public List<CourseDTO> getAllCourses() {
@@ -58,7 +58,6 @@ public class ApiController {
             @RequestParam(defaultValue = "10") int size
     ) {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
-        // DÜZELTİLDİ: Artık herkes USER olduğu için USER arıyoruz
         return accountRepository.searchAccountsByRole(Role.USER, search, pageable)
                 .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole()));
     }
@@ -84,10 +83,8 @@ public class ApiController {
 
     @PostMapping("/accounts/student")
     public ResponseEntity<?> createStudent(@RequestBody Account account) {
-        // DÜZELTİLDİ: Yeni kişi eklendiğinde doğrudan USER yetkisi alır
         account.setRole(Role.USER);
 
-        // GÜVENLİK: Sisteme eklenen kişiye giriş yapabilmesi için otomatik Kullanıcı Adı ve Şifre (1234) ver
         if (account.getUsername() == null) {
             String generatedUsername = account.getFirstName().toLowerCase().replaceAll("\\s+", "") + (System.currentTimeMillis() % 1000);
             account.setUsername(generatedUsername);
@@ -96,8 +93,7 @@ public class ApiController {
             account.setPassword(passwordEncoder.encode("1234"));
         }
 
-        long totalUsers = accountRepository.count();
-        account.setStudentNumber("260" + (1000 + totalUsers));
+        // DÜZELTME: Otomatik numara atama silindi. Artık frontend'den gönderilen 'studentNumber' direkt kaydediliyor.
         Account savedAccount = accountRepository.save(account);
         return ResponseEntity.ok(savedAccount);
     }
@@ -113,6 +109,7 @@ public class ApiController {
         Account account = accountRepository.findById(id).orElseThrow();
         account.setFirstName(updatedData.getFirstName());
         account.setLastName(updatedData.getLastName());
+        account.setStudentNumber(updatedData.getStudentNumber()); // DÜZELTME: Güncellenirken de numara değişebilsin
         accountRepository.save(account);
         return ResponseEntity.ok("{\"message\": \"Updated successfully.\"}");
     }

@@ -28,7 +28,7 @@ public class DataSeeder {
 
             if (accountRepo.count() == 0) {
                 accountRepo.saveAll(List.of(
-                        Account.builder().username("admin").password(passwordEncoder.encode("1234")).firstName("Engin").lastName("Bey").role(Role.ADMIN).build(),
+                        Account.builder().username("admin").password(passwordEncoder.encode("1234")).firstName("Yetkili").lastName("Birileri").role(Role.ADMIN).build(),
                         Account.builder().username("ayberk").password(passwordEncoder.encode("1234")).firstName("Ayberk").lastName("Arda").studentNumber("2401001").role(Role.USER).build(),
                         Account.builder().username("ali").password(passwordEncoder.encode("1234")).firstName("Ali").lastName("Yilmaz").studentNumber("2401002").role(Role.USER).build()
                 ));
