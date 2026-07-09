@@ -100,4 +100,18 @@ public class ApiController {
         Course savedCourse = courseRepository.save(course);
         return ResponseEntity.ok(new CourseDTO(savedCourse.getId(), savedCourse.getName(), savedCourse.getTerm()));
     }
+    @DeleteMapping("/accounts/{id}")
+    public ResponseEntity<?> deleteAccount(@PathVariable Long id) {
+        accountRepository.deleteById(id);
+        return ResponseEntity.ok("{\"message\": \"Deleted successfully.\"}");
+    }
+
+    @PutMapping("/accounts/{id}")
+    public ResponseEntity<?> updateAccount(@PathVariable Long id, @RequestBody Account updatedData) {
+        Account account = accountRepository.findById(id).orElseThrow();
+        account.setFirstName(updatedData.getFirstName());
+        account.setLastName(updatedData.getLastName());
+        accountRepository.save(account);
+        return ResponseEntity.ok("{\"message\": \"Updated successfully.\"}");
+    }
 }
