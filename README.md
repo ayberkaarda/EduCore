@@ -11,6 +11,7 @@ Bu proje, arka planda **Spring Boot** (Java, Spring Data JPA, Spring Security) v
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
 
 ### 🌓 Ana Sayfa ve Giriş Sayfası
+| Dashboard | Login Page) |
 |:-------------------------:|:------------------------:|
 | <img src="./screenshots/maindash.jpeg" width="100%" alt="dashboard Home"> | <img src="./screenshots/loginPage.jpeg" width="100%" alt="Loginpage"> |
 
