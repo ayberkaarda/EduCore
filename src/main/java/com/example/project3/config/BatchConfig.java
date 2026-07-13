@@ -28,7 +28,9 @@ public class BatchConfig {
     // 1. READER: CSV'yi Okur
     @Bean
     @StepScope
-    public com.example.project3.config.FlatFileItemReader<StudentCsvRecord> reader(@Value("#{jobParameters['filePath']}") String filePath) {
+    // ESKİ HALİ: public com.example.project3.config.FlatFileItemReader<StudentCsvRecord> reader(...
+// YENİ HALİ:
+    public FlatFileItemReader<StudentCsvRecord> reader(@Value("#{jobParameters['filePath']}") String filePath) {
         return new FlatFileItemReaderBuilder<StudentCsvRecord>()
                 .name("studentItemReader")
                 .resource(new FileSystemResource(filePath))
