@@ -28,7 +28,7 @@ public class BatchConfig {
     // 1. READER: CSV'yi Okur
     @Bean
     @StepScope
-    public FlatFileItemReader<StudentCsvRecord> reader(@Value("#{jobParameters['filePath']}") String filePath) {
+    public com.example.project3.config.FlatFileItemReader<StudentCsvRecord> reader(@Value("#{jobParameters['filePath']}") String filePath) {
         return new FlatFileItemReaderBuilder<StudentCsvRecord>()
                 .name("studentItemReader")
                 .resource(new FileSystemResource(filePath))
@@ -69,8 +69,9 @@ public class BatchConfig {
                 .build();
     }
 
-    // 4. STEP: Reader, Processor ve Writer'ı birleştirir (10'ar parça chunk halinde işler)
+    // 4. STEP: Reader, Processor ve Writer'ı birleştirir
     @Bean
+    @SuppressWarnings("deprecation") // DÜZELTME: IDE'nin verdiği 'chunk deprecated' sarı uyarısını susturur.
     public Step processCsvStep(JobRepository jobRepository, PlatformTransactionManager transactionManager,
                                FlatFileItemReader<StudentCsvRecord> reader,
                                ItemProcessor<StudentCsvRecord, Account> processor,
@@ -82,7 +83,7 @@ public class BatchConfig {
                 .writer(writer)
                 .faultTolerant()
                 .skip(Exception.class)
-                .skipLimit(100) // 100 hataya kadar job'u çökertmeden okumaya devam et
+                .skipLimit(100)
                 .build();
     }
 

@@ -20,21 +20,20 @@ public class Account implements UserDetails {
     private Long id;
 
     @Column(unique = true, nullable = false)
-    private String username; // YENİ: Giriş için
+    private String username;
 
     @Column(nullable = false)
-    private String password; // YENİ: Giriş için (Şifrelenmiş tutulacak)
+    private String password;
 
     private String firstName;
     private String lastName;
-    private String studentNumber;
-    @Column(unique = true)
+
+    @Column(unique = true) // DÜZELTME: Çift yazılan değişken teke indirildi
     private String studentNumber;
 
     @Enumerated(EnumType.STRING)
     private Role role;
 
-    // --- SPRING SECURITY METOTLARI ---
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
