@@ -3,11 +3,12 @@ package com.example.project3.service;
 import com.example.project3.entity.JobLog;
 import com.example.project3.repository.JobLogRepository;
 import org.springframework.batch.core.*;
-import org.springframework.batch.core.job.Job;
-import org.springframework.batch.core.job.parameters.JobParameters;
-import org.springframework.batch.core.job.parameters.JobParametersBuilder;
+// ESKİ VE HATALI OLANLARI SİL, BUNLARI EKLE:
+import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobParameters;
+import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.batch.core.repository.persistence.StepExecution;
+import org.springframework.batch.core.StepExecution; // DOĞRU PAKET YOLU BU
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
