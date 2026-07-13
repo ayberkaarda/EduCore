@@ -38,8 +38,17 @@ public class ApiController {
                 .collect(Collectors.toList());
     }
 
+    // --- 1. DERS EKLEME (GÜVENLİK KALKANLI) ---
     @PostMapping("/enroll")
     public ResponseEntity<?> enrollCourse(@RequestBody EnrollmentRequest request) {
+        // Giren kişiyi yakala
+        Account loggedInUser = (Account) org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        // KURAL: Admin değilse VE girdiği ID kendi ID'si değilse YASAKLA
+        if (loggedInUser.getRole() != Role.ADMIN && !loggedInUser.getId().equals(request.accountId())) {
+            return ResponseEntity.status(403).body("{\"error\": \"You can only modify your own courses!\"}");
+        }
+
         Account account = accountRepository.findById(request.accountId()).orElseThrow();
         Course course = courseRepository.findById(request.courseId()).orElseThrow();
 
@@ -49,7 +58,23 @@ public class ApiController {
 
         Enrollment enrollment = Enrollment.builder().account(account).course(course).build();
         enrollmentRepository.save(enrollment);
-        return ResponseEntity.ok("Enrolled successfully.");
+        return ResponseEntity.ok("{\"message\": \"Enrolled successfully.\"}");
+    }
+
+    // --- 2. YENİ EKLENDİ: DERSİ BIRAKMA/SİLME (GÜVENLİK KALKANLI) ---
+    @DeleteMapping("/accounts/{accountId}/courses/{courseId}")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<?> dropCourse(@PathVariable Long accountId, @PathVariable Long courseId) {
+        // Giren kişiyi yakala
+        Account loggedInUser = (Account) org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        // KURAL: Admin değilse VE girdiği ID kendi ID'si değilse YASAKLA
+        if (loggedInUser.getRole() != Role.ADMIN && !loggedInUser.getId().equals(accountId)) {
+            return ResponseEntity.status(403).body("{\"error\": \"You can only drop your own courses!\"}");
+        }
+
+        enrollmentRepository.deleteByAccountIdAndCourseId(accountId, courseId);
+        return ResponseEntity.ok("{\"message\": \"Course dropped successfully.\"}");
     }
 
     @GetMapping("/accounts/students")
@@ -79,7 +104,7 @@ public class ApiController {
         Account account = accountRepository.findById(id).orElseThrow();
         account.setRole(Role.valueOf(payload.get("role")));
         accountRepository.save(account);
-        return ResponseEntity.ok("Role successfully updated.");
+        return ResponseEntity.ok("{\"message\": \"Role successfully updated.\"}");
     }
 
     @PostMapping("/accounts/student")
@@ -94,7 +119,6 @@ public class ApiController {
             account.setPassword(passwordEncoder.encode("1234"));
         }
 
-        // DÜZELTME: Otomatik numara atama silindi. Artık frontend'den gönderilen 'studentNumber' direkt kaydediliyor.
         Account savedAccount = accountRepository.save(account);
         return ResponseEntity.ok(savedAccount);
     }
@@ -110,7 +134,7 @@ public class ApiController {
         Account account = accountRepository.findById(id).orElseThrow();
         account.setFirstName(updatedData.getFirstName());
         account.setLastName(updatedData.getLastName());
-        account.setStudentNumber(updatedData.getStudentNumber()); // DÜZELTME: Güncellenirken de numara değişebilsin
+        account.setStudentNumber(updatedData.getStudentNumber());
         accountRepository.save(account);
         return ResponseEntity.ok("{\"message\": \"Updated successfully.\"}");
     }
