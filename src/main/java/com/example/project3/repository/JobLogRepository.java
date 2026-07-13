@@ -1,7 +1,10 @@
 package com.example.project3.repository;
 
-import org.springframework.data.domain.Sort;
+import com.example.project3.entity.JobLog;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
-public interface JobLogRepository {
-    Object findAll(Sort createdAt);
+@Repository
+public interface JobLogRepository extends JpaRepository<JobLog, Long> {
+    // JpaRepository zaten findAll(Sort sort) ve save() metotlarını otomatik olarak barındırır.
 }
