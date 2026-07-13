@@ -1,27 +1,24 @@
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-// YENİ İKONLAR EKLENDİ: Lock ve ArrowRight
-import { BookOpen, ShieldCheck, LogOut, Lock, ArrowRight } from 'lucide-react'
+import { BookOpen, ShieldCheck, LogOut, Lock, ArrowRight, FileText } from 'lucide-react' // DÜZELTME: FileText ikonu eklendi
 import axios from 'axios'
 import StudentDetail from './StudentDetail'
 import StudentList from './StudentList'
 import CourseManagement from './CourseManagement'
+import JobLogs from './JobLogs' // DÜZELTME: JobLogs sayfası eklendi
 import Login from './Login'
 import Home from './Home'
 import './App.css'
 
-// --- YENİ, DAHA ŞIK "UNAUTHORIZED" (YETKİSİZ) SAYFASI ---
 const Unauthorized = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
       <div className="card" style={{ textAlign: 'center', padding: '4rem 3rem', maxWidth: '480px', width: '100%', position: 'relative', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)', borderRadius: '1.5rem', border: '1px solid #e5e7eb' }}>
 
-        {/* Arka Plan "401" Filigranı */}
         <div style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', fontSize: '14rem', fontWeight: '900', color: '#fca5a5', opacity: '0.15', zIndex: 0, userSelect: 'none', letterSpacing: '-0.05em' }}>
           401
         </div>
 
         <div style={{ position: 'relative', zIndex: 1 }}>
-          {/* Şık Kırmızı İkon Halkası */}
           <div style={{ width: '80px', height: '80px', backgroundColor: '#fee2e2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem auto', boxShadow: '0 0 0 10px rgba(254, 226, 226, 0.5)' }}>
             <Lock size={36} color="#dc2626" />
           </div>
@@ -34,7 +31,6 @@ const Unauthorized = () => (
             Oops! It looks like you're trying to enter a restricted area. Your session might have expired, or you don't have the necessary credentials.
           </p>
 
-          {/* Aksiyon Butonu */}
           <Link to="/login" className="btn-primary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%', padding: '0.875rem', fontSize: '1rem', borderRadius: '0.75rem', transition: 'all 0.2s ease', backgroundColor: '#111827' }}>
             Secure Login <ArrowRight size={18} />
           </Link>
@@ -43,7 +39,6 @@ const Unauthorized = () => (
     </div>
 );
 
-// Korumalı Rota Kalkanı
 const ProtectedRoute = ({ authData, children }) => {
   const location = useLocation();
   if (!authData.token) {
@@ -55,7 +50,6 @@ const ProtectedRoute = ({ authData, children }) => {
   return children;
 };
 
-// Sidebar ve İçerik Kapsayıcısı
 const AppLayout = ({ authData, setAuthData, children }) => {
   const handleLogout = () => {
     localStorage.clear()
@@ -75,6 +69,15 @@ const AppLayout = ({ authData, setAuthData, children }) => {
             <li><Link to="/">🏠 Home</Link></li>
             <li><Link to="/students">🎓 Students</Link></li>
             <li><Link to="/courses">📚 Courses</Link></li>
+            {/* DÜZELTME: Sadece Admin ise Log menüsünü gösterir */}
+            {authData.role === 'ADMIN' && (
+                <li>
+                  <Link to="/logs">
+                    <FileText size={16} style={{display:'inline', verticalAlign:'middle', marginRight:'5px'}}/>
+                    Job Logs
+                  </Link>
+                </li>
+            )}
           </ul>
 
           <div className="user-profile">
@@ -139,6 +142,8 @@ function App() {
                   <Route path="/students" element={<StudentList appMode={{ role: authData.role }} />} />
                   <Route path="/students/:id" element={<StudentDetail appMode={{ role: authData.role }} />} />
                   <Route path="/courses" element={<CourseManagement appMode={{ role: authData.role }} />} />
+                  {/* DÜZELTME: Log sayfası rotası eklendi */}
+                  <Route path="/logs" element={<JobLogs appMode={{ role: authData.role }} />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </AppLayout>
