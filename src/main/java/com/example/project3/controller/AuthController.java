@@ -33,7 +33,7 @@ public class AuthController {
                 "token", token,
                 "role", user.getRole().name(),
                 "firstName", user.getFirstName(),
-                "id", String.valueOf(user.getId()
+                "id", String.valueOf(user.getId())
         ));
     }
 }
