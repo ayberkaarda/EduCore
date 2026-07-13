@@ -24,20 +24,6 @@ public class ApiController {
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private JobLogRepository jobLogRepository;
 
-    @GetMapping("/courses")
-    public List<CourseDTO> getAllCourses() {
-        return courseRepository.findAll().stream()
-                .map(c -> new CourseDTO(c.getId(), c.getName(), c.getTerm()))
-                .collect(Collectors.toList());
-    }
-
-    @GetMapping("/accounts/{accountId}/courses")
-    public List<CourseDTO> getEnrolledCourses(@PathVariable Long accountId) {
-        return enrollmentRepository.findByAccountId(accountId).stream()
-                .map(e -> new CourseDTO(e.getCourse().getId(), e.getCourse().getName(), e.getCourse().getTerm()))
-                .collect(Collectors.toList());
-    }
-
     // --- 1. DERS EKLEME (GÜVENLİK KALKANLI) ---
     @PostMapping("/enroll")
     public ResponseEntity<?> enrollCourse(@RequestBody EnrollmentRequest request) {
@@ -156,6 +142,7 @@ public class ApiController {
         Course course = courseRepository.findById(id).orElseThrow();
         course.setName(updatedData.getName());
         course.setTerm(updatedData.getTerm());
+        course.setInstructor(updatedData.getInstructor()); // DÜZELTME: Güncelleme esnasında Hoca da güncellenir!
         courseRepository.save(course);
         return ResponseEntity.ok("{\"message\": \"Course updated successfully.\"}");
     }
@@ -168,7 +155,7 @@ public class ApiController {
     @GetMapping("/courses")
     public List<CourseDTO> getAllCourses() {
         return courseRepository.findAll().stream()
-                .map(c -> new CourseDTO(c.getId(), c.getName(), c.getTerm(), c.getInstructor())) // YENİ
+                .map(c -> new CourseDTO(c.getId(), c.getName(), c.getTerm())) // YENİ
                 .collect(Collectors.toList());
     }
 
@@ -176,7 +163,7 @@ public class ApiController {
     @GetMapping("/accounts/{accountId}/courses")
     public List<CourseDTO> getEnrolledCourses(@PathVariable Long accountId) {
         return enrollmentRepository.findByAccountId(accountId).stream()
-                .map(e -> new CourseDTO(e.getCourse().getId(), e.getCourse().getName(), e.getCourse().getTerm(), e.getCourse().getInstructor())) // YENİ
+                .map(e -> new CourseDTO(e.getCourse().getId(), e.getCourse().getName(), e.getCourse().getTerm())) // YENİ
                 .collect(Collectors.toList());
     }
 }
