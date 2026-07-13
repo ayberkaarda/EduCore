@@ -1,106 +1,79 @@
 package com.example.project3.service;
 
-import com.example.project3.entity.Account;
 import com.example.project3.entity.JobLog;
-import com.example.project3.entity.Role;
-import com.example.project3.repository.AccountRepository;
 import com.example.project3.repository.JobLogRepository;
+import org.springframework.batch.core.*;
+import org.springframework.batch.core.job.Job;
+import org.springframework.batch.core.job.parameters.JobParameters;
+import org.springframework.batch.core.job.parameters.JobParametersBuilder;
+import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.repository.persistence.StepExecution;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.time.LocalDateTime;
 
 @Service
 public class CsvJobService {
 
-    @Autowired private AccountRepository accountRepository;
+    @Autowired private JobLauncher jobLauncher;
+    @Autowired private Job importStudentJob;
     @Autowired private JobLogRepository jobLogRepository;
-    @Autowired private PasswordEncoder passwordEncoder;
 
-    // CSV'lerin atılacağı klasör
     private final String DIRECTORY_PATH = "csv_uploads";
 
-    @Scheduled(fixedDelay = 30000) // 30 saniyede bir tetiklenir (Spring @Scheduled Job)
-    public void processCsvFiles() {
+    @Scheduled(fixedDelay = 30000) // 30 Saniyede bir klasörü dinler
+    public void runBatchJob() {
         File folder = new File(DIRECTORY_PATH);
-        if (!folder.exists()) {
-            folder.mkdirs(); // Klasör yoksa oluşturur
-            return;
-        }
+        if (!folder.exists()) { folder.mkdirs(); return; }
 
         File[] files = folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
         if (files == null || files.length == 0) return;
 
         for (File file : files) {
-            int successCount = 0;
-            int errorCount = 0;
-            boolean isFileFailed = false;
+            try {
+                // Job'a Parametre Olarak Dosya Yolunu Veriyoruz
+                JobParameters jobParameters = new JobParametersBuilder()
+                        .addString("filePath", file.getAbsolutePath())
+                        .addLong("time", System.currentTimeMillis()) // Her job benzersiz olmalı
+                        .toJobParameters();
 
-            try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-                String line;
-                boolean isFirstLine = true;
+                // BATCH JOB'U BAŞLAT
+                JobExecution execution = jobLauncher.run(importStudentJob, jobParameters);
 
-                while ((line = br.readLine()) != null) {
-                    // İlk satır başlık (FirstName,LastName,StudentNumber) kabul ediyoruz
-                    if (isFirstLine) { isFirstLine = false; continue; }
+                // Batch'in Sonuçlarını Hesapla
+                int writeCount = 0; // Başarılı yazılanlar
+                int filterAndSkipCount = 0; // Aynı no (Filtrelenen) veya Hatalı olanlar
 
-                    String[] data = line.split(",");
-                    if (data.length < 3) {
-                        errorCount++;
-                        continue;
-                    }
-
-                    String firstName = data[0].trim();
-                    String lastName = data[1].trim();
-                    String studentNumber = data[2].trim();
-
-                    // Öğrenci numarası benzersizlik kontrolü
-                    if (accountRepository.findByStudentNumber(studentNumber).isPresent()) {
-                        errorCount++;
-                        continue;
-                    }
-
-                    try {
-                        String generatedUsername = firstName.toLowerCase() + System.currentTimeMillis() % 1000;
-                        Account account = Account.builder()
-                                .firstName(firstName)
-                                .lastName(lastName)
-                                .studentNumber(studentNumber)
-                                .username(generatedUsername)
-                                .password(passwordEncoder.encode("1234")) // Varsayılan şifre
-                                .role(Role.USER)
-                                .build();
-                        accountRepository.save(account);
-                        successCount++;
-                    } catch (Exception e) {
-                        errorCount++;
-                    }
+                for (StepExecution stepExecution : execution.getStepExecutions()) {
+                    writeCount += stepExecution.getWriteCount();
+                    filterAndSkipCount += stepExecution.getFilterCount() + stepExecution.getSkipCount();
                 }
+
+                boolean isFailed = execution.getStatus() == BatchStatus.FAILED;
+
+                // Log Tablosuna Yaz
+                JobLog log = JobLog.builder()
+                        .fileName(file.getName())
+                        .successfulRecords(writeCount)
+                        .failedRecords(filterAndSkipCount)
+                        .status(isFailed ? "FAILED" : "SUCCESS")
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                jobLogRepository.save(log);
+
+                // Uzantıyı Değiştir
+                String newExtension = isFailed ? ".fail" : ".done";
+                file.renameTo(new File(file.getAbsolutePath() + newExtension));
+
+                System.out.println("Spring Batch Bitti: " + file.getName() + " -> " + newExtension);
+
             } catch (Exception e) {
-                isFileFailed = true; // Dosya hiç okunamadıysa
+                e.printStackTrace();
+                file.renameTo(new File(file.getAbsolutePath() + ".fail")); // Ciddi çökme varsa fail yap
             }
-
-            // Log Tablosuna Kayıt
-            JobLog log = JobLog.builder()
-                    .fileName(file.getName())
-                    .successfulRecords(successCount)
-                    .failedRecords(errorCount)
-                    .status(isFileFailed ? "FAILED" : "SUCCESS")
-                    .createdAt(LocalDateTime.now())
-                    .build();
-            jobLogRepository.save(log);
-
-            // İşlem bitince dosya uzantısını değiştir
-            String newExtension = isFileFailed ? ".fail" : ".done";
-            File newFile = new File(file.getAbsolutePath() + newExtension);
-            file.renameTo(newFile);
-
-            System.out.println("Job Bitti: " + file.getName() + " -> " + newExtension);
         }
     }
 }
