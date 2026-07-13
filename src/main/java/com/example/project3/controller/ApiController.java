@@ -164,4 +164,19 @@ public class ApiController {
     public ResponseEntity<?> getJobLogs() {
         return ResponseEntity.ok(jobLogRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")));
     }
+    // GetAllCourses metodunu güncelle:
+    @GetMapping("/courses")
+    public List<CourseDTO> getAllCourses() {
+        return courseRepository.findAll().stream()
+                .map(c -> new CourseDTO(c.getId(), c.getName(), c.getTerm(), c.getInstructor())) // YENİ
+                .collect(Collectors.toList());
+    }
+
+    // GetEnrolledCourses metodunu güncelle:
+    @GetMapping("/accounts/{accountId}/courses")
+    public List<CourseDTO> getEnrolledCourses(@PathVariable Long accountId) {
+        return enrollmentRepository.findByAccountId(accountId).stream()
+                .map(e -> new CourseDTO(e.getCourse().getId(), e.getCourse().getName(), e.getCourse().getTerm(), e.getCourse().getInstructor())) // YENİ
+                .collect(Collectors.toList());
+    }
 }
