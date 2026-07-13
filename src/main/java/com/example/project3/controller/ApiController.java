@@ -22,6 +22,7 @@ public class ApiController {
     @Autowired private CourseRepository courseRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private JobLogRepository jobLogRepository;
 
     @GetMapping("/courses")
     public List<CourseDTO> getAllCourses() {
@@ -133,5 +134,10 @@ public class ApiController {
         course.setTerm(updatedData.getTerm());
         courseRepository.save(course);
         return ResponseEntity.ok("{\"message\": \"Course updated successfully.\"}");
+    }
+
+    @GetMapping("/logs")
+    public ResponseEntity<?> getJobLogs() {
+        return ResponseEntity.ok(jobLogRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")));
     }
 }

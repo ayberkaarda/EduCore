@@ -28,6 +28,8 @@ public class Account implements UserDetails {
     private String firstName;
     private String lastName;
     private String studentNumber;
+    @Column(unique = true)
+    private String studentNumber;
 
     @Enumerated(EnumType.STRING)
     private Role role;

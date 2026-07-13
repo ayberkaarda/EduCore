@@ -17,7 +17,7 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
             "LOWER(a.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "LOWER(COALESCE(a.studentNumber, '')) LIKE LOWER(CONCAT('%', :search, '%')))")
     Page<Account> searchAccountsByRole(@Param("role") Role role, @Param("search") String search, Pageable pageable);
-
+    java.util.Optional<Account> findByStudentNumber(String studentNumber);
     @Query("SELECT a FROM Account a WHERE " +
             "LOWER(a.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "LOWER(a.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
