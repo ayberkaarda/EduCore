@@ -14,8 +14,8 @@ export default function CourseManagement({ appMode }) {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
-    const [newCourse, setNewCourse] = useState({ name: '', term: '' })
-    const [editCourse, setEditCourse] = useState({ id: null, name: '', term: '' })
+    const [newCourse, setNewCourse] = useState({ name: '', term: '', instructor: '' })
+    const [editCourse, setEditCourse] = useState({ id: null, name: '', term: '', instructor: '' })
 
     useEffect(() => { fetchData() }, [])
 
@@ -92,6 +92,7 @@ export default function CourseManagement({ appMode }) {
 
                         <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: '#111827', paddingRight: '3rem' }}>{c.name}</h4>
                         <span className="badge" style={{ backgroundColor: '#e0e7ff', color: '#3730a3', marginTop: '0.5rem' }}><Calendar size={12} style={{display:'inline', marginRight:'4px'}}/> Term: {c.term}</span>
+                        <span className="badge" style={{ backgroundColor: '#d1fae5', color: '#065f46', marginTop: '0.5rem', marginLeft: '0.5rem' }}>👤 Instructor: {c.instructor || 'Not Assigned'}</span>
                     </div>
                 ))}
             </div>
@@ -104,6 +105,10 @@ export default function CourseManagement({ appMode }) {
                         <form onSubmit={handleCreate}>
                             <div className="form-group"><label>Course Name</label><input required type="text" value={newCourse.name} onChange={e => setNewCourse({...newCourse, name: e.target.value})} /></div>
                             <div className="form-group"><label>Term</label><input required type="text" value={newCourse.term} onChange={e => setNewCourse({...newCourse, term: e.target.value})} /></div>
+                            <div className="form-group">
+                                <label>Instructor Name</label>
+                                <input required type="text" value={newCourse.instructor} onChange={e => setNewCourse({...newCourse, instructor: e.target.value})} />
+                            </div>
                             <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary">Save</button></div>
                         </form>
                     </div>

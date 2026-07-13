@@ -19,4 +19,7 @@ public class JobLog {
     private int failedRecords;
     private String status; // SUCCESS veya FAILED
     private LocalDateTime createdAt;
+    @Column(columnDefinition = "TEXT")
+    private String detailedLogs;
+    private String entityType; // YENİ: STUDENTS veya COURSES
 }

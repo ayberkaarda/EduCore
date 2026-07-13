@@ -2,7 +2,9 @@ package com.example.project3.config;
 
 import com.example.project3.dto.StudentCsvRecord;
 import com.example.project3.entity.Account;
+import com.example.project3.entity.Course;
 import com.example.project3.entity.Role;
+import com.example.project3.config.JobTracker;
 import com.example.project3.repository.AccountRepository;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -43,12 +45,22 @@ public class BatchConfig {
 
     // 2. PROCESSOR: İş Kuralları (Aynı numara varsa atla)
     @Bean
-    public ItemProcessor<StudentCsvRecord, Account> processor(AccountRepository accountRepository, PasswordEncoder passwordEncoder) {
+    @StepScope // YENİ: Job parametrelerine (Job ID) ulaşabilmek için eklendi
+    public ItemProcessor<StudentCsvRecord, Account> processor(
+            AccountRepository accountRepository,
+            PasswordEncoder passwordEncoder,
+            JobTracker jobTracker,
+            @Value("#{stepExecution.jobExecution.jobId}") Long jobId) {
+
         return record -> {
-            // Numarayı kontrol et, varsa null dön (Spring Batch null dönenleri "Filtrelendi/Hata" sayar ve DB'ye yazmaz)
+            // HATA DURUMU
             if (accountRepository.findByStudentNumber(record.getStudentNumber()).isPresent()) {
+                jobTracker.addLog(jobId, "FAILED", record.getFirstName() + " " + record.getLastName() + " - Failed: Student number (" + record.getStudentNumber() + ") already exists.");
                 return null;
             }
+
+            // BAŞARI DURUMU
+            jobTracker.addLog(jobId, "SUCCESS", record.getFirstName() + " " + record.getLastName() + " - Successfully added.");
 
             String generatedUsername = record.getFirstName().toLowerCase() + System.currentTimeMillis() % 1000;
             return Account.builder()
@@ -95,5 +107,57 @@ public class BatchConfig {
         return new JobBuilder("importStudentJob", jobRepository)
                 .start(processCsvStep)
                 .build();
+    }
+    // --- YENİ: DERSLER İÇİN BATCH KONFİGÜRASYONU ---
+
+    @Bean
+    @StepScope
+    public FlatFileItemReader<com.example.project3.dto.CourseCsvRecord> courseReader(@Value("#{jobParameters['filePath']}") String filePath) {
+        return new FlatFileItemReaderBuilder<com.example.project3.dto.CourseCsvRecord>()
+                .name("courseItemReader")
+                .resource(new FileSystemResource(filePath))
+                .linesToSkip(1)
+                .delimited()
+                .names("name", "term", "instructor") // CSV'deki kolonlar
+                .targetType(com.example.project3.dto.CourseCsvRecord.class)
+                .build();
+    }
+
+    @Bean
+    @StepScope
+    public ItemProcessor<com.example.project3.dto.CourseCsvRecord, Course> courseProcessor(
+            com.example.project3.repository.CourseRepository courseRepo, JobTracker jobTracker, @Value("#{stepExecution.jobExecution.jobId}") Long jobId) {
+        return record -> {
+            if (courseRepo.findByName(record.getName()).isPresent()) {
+                jobTracker.addLog(jobId, "FAILED", "Course - Failed: Course name ('" + record.getName() + "') already exists.");
+                return null;
+            }
+            jobTracker.addLog(jobId, "SUCCESS", "Course - '" + record.getName() + "' successfully added.");
+            return Course.builder().name(record.getName()).term(record.getTerm()).instructor(record.getInstructor()).build();
+        };
+    }
+
+    @Bean
+    public RepositoryItemWriter<Course> courseWriter(com.example.project3.repository.CourseRepository courseRepo) {
+        return new RepositoryItemWriterBuilder<Course>().repository(courseRepo).methodName("save").build();
+    }
+
+    @Bean
+    @SuppressWarnings("deprecation")
+    public Step processCourseCsvStep(JobRepository jobRepository, PlatformTransactionManager transactionManager,
+                                     FlatFileItemReader<com.example.project3.dto.CourseCsvRecord> courseReader,
+                                     ItemProcessor<com.example.project3.dto.CourseCsvRecord, Course> courseProcessor,
+                                     RepositoryItemWriter<Course> courseWriter) {
+        return new StepBuilder("processCourseCsvStep", jobRepository)
+                .<com.example.project3.dto.CourseCsvRecord, Course>chunk(10, transactionManager)
+                .reader(courseReader)
+                .processor(courseProcessor)
+                .writer(courseWriter)
+                .faultTolerant().skip(Exception.class).skipLimit(100).build();
+    }
+
+    @Bean
+    public Job importCourseJob(JobRepository jobRepository, Step processCourseCsvStep) {
+        return new JobBuilder("importCourseJob", jobRepository).start(processCourseCsvStep).build();
     }
 }
