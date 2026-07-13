@@ -9,7 +9,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.time.LocalDateTime;
 
 @Service
@@ -17,9 +19,9 @@ public class CsvJobService {
 
     @Autowired private JobLauncher jobLauncher;
     @Autowired private Job importStudentJob;
-    @Autowired private JobLogRepository jobLogRepository;
-    @Autowired private JobTracker jobTracker; // YENİ EKLENDİ
     @Autowired private Job importCourseJob;
+    @Autowired private JobLogRepository jobLogRepository;
+    @Autowired private JobTracker jobTracker;
 
     private final String DIRECTORY_PATH = "csv_uploads";
 
@@ -33,12 +35,25 @@ public class CsvJobService {
 
         for (File file : files) {
             try {
+                // --- YENİ AKILLI KONTROL ---
+                // Dosyanın ismine değil, ilk satırındaki (başlıklardaki) kelimelere bakar.
+                boolean isCourse = false;
+                try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+                    String firstLine = br.readLine();
+                    if (firstLine != null && (firstLine.toLowerCase().contains("instructor") || firstLine.toLowerCase().contains("term"))) {
+                        isCourse = true; // İçinde instructor/term geçiyorsa kesinlikle Ders'tir!
+                    }
+                }
+
+                Job jobToRun = isCourse ? importCourseJob : importStudentJob;
+                String entityType = isCourse ? "COURSES" : "STUDENTS";
+
                 JobParameters jobParameters = new JobParametersBuilder()
                         .addString("filePath", file.getAbsolutePath())
                         .addLong("time", System.currentTimeMillis())
                         .toJobParameters();
 
-                JobExecution execution = jobLauncher.run(importStudentJob, jobParameters);
+                JobExecution execution = jobLauncher.run(jobToRun, jobParameters);
 
                 int writeCount = 0;
                 int filterAndSkipCount = 0;
@@ -50,7 +65,6 @@ public class CsvJobService {
 
                 boolean isFailed = execution.getStatus() == BatchStatus.FAILED;
 
-                // YENİ: İşlem bitince JSON logları çek ve hafızayı temizle
                 String detailedLogsJson = jobTracker.getLogsAsJson(execution.getJobId());
                 jobTracker.clear(execution.getJobId());
 
@@ -59,7 +73,8 @@ public class CsvJobService {
                         .successfulRecords(writeCount)
                         .failedRecords(filterAndSkipCount)
                         .status(isFailed ? "FAILED" : "SUCCESS")
-                        .detailedLogs(detailedLogsJson) // YENİ: Veritabanına kaydet
+                        .entityType(entityType) // YENİ: COURSES veya STUDENTS olarak kaydeder
+                        .detailedLogs(detailedLogsJson)
                         .createdAt(LocalDateTime.now())
                         .build();
                 jobLogRepository.save(log);
@@ -67,7 +82,7 @@ public class CsvJobService {
                 String newExtension = isFailed ? ".fail" : ".done";
                 file.renameTo(new File(file.getAbsolutePath() + newExtension));
 
-                System.out.println("Spring Batch Bitti: " + file.getName() + " -> " + newExtension);
+                System.out.println("Spring Batch Bitti: " + file.getName() + " -> " + newExtension + " (" + entityType + ")");
 
             } catch (Exception e) {
                 e.printStackTrace();

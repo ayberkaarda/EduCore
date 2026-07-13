@@ -1,11 +1,12 @@
 package com.example.project3.config;
 
+import com.example.project3.dto.CourseCsvRecord;
 import com.example.project3.dto.StudentCsvRecord;
 import com.example.project3.entity.Account;
 import com.example.project3.entity.Course;
 import com.example.project3.entity.Role;
-import com.example.project3.config.JobTracker;
 import com.example.project3.repository.AccountRepository;
+import com.example.project3.repository.CourseRepository;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -27,41 +28,36 @@ import org.springframework.transaction.PlatformTransactionManager;
 @Configuration
 public class BatchConfig {
 
-    // 1. READER: CSV'yi Okur
+    // ==========================================
+    // 1. ÖĞRENCİ (STUDENT) BATCH YAPILANDIRMASI
+    // ==========================================
+
     @Bean
     @StepScope
-    // ESKİ HALİ: public com.example.project3.config.FlatFileItemReader<StudentCsvRecord> reader(...
-// YENİ HALİ:
-    public FlatFileItemReader<StudentCsvRecord> reader(@Value("#{jobParameters['filePath']}") String filePath) {
+    public FlatFileItemReader<StudentCsvRecord> studentReader(@Value("#{jobParameters['filePath']}") String filePath) {
         return new FlatFileItemReaderBuilder<StudentCsvRecord>()
                 .name("studentItemReader")
                 .resource(new FileSystemResource(filePath))
-                .linesToSkip(1) // İlk satırı (Başlıkları) atla
+                .linesToSkip(1)
                 .delimited()
                 .names("firstName", "lastName", "studentNumber")
                 .targetType(StudentCsvRecord.class)
                 .build();
     }
 
-    // 2. PROCESSOR: İş Kuralları (Aynı numara varsa atla)
     @Bean
-    @StepScope // YENİ: Job parametrelerine (Job ID) ulaşabilmek için eklendi
-    public ItemProcessor<StudentCsvRecord, Account> processor(
+    @StepScope
+    public ItemProcessor<StudentCsvRecord, Account> studentProcessor(
             AccountRepository accountRepository,
             PasswordEncoder passwordEncoder,
             JobTracker jobTracker,
             @Value("#{stepExecution.jobExecution.jobId}") Long jobId) {
-
         return record -> {
-            // HATA DURUMU
             if (accountRepository.findByStudentNumber(record.getStudentNumber()).isPresent()) {
                 jobTracker.addLog(jobId, "FAILED", record.getFirstName() + " " + record.getLastName() + " - Failed: Student number (" + record.getStudentNumber() + ") already exists.");
                 return null;
             }
-
-            // BAŞARI DURUMU
             jobTracker.addLog(jobId, "SUCCESS", record.getFirstName() + " " + record.getLastName() + " - Successfully added.");
-
             String generatedUsername = record.getFirstName().toLowerCase() + System.currentTimeMillis() % 1000;
             return Account.builder()
                     .firstName(record.getFirstName())
@@ -74,90 +70,104 @@ public class BatchConfig {
         };
     }
 
-    // 3. WRITER: Veritabanına Yazar
     @Bean
-    public RepositoryItemWriter<Account> writer(AccountRepository accountRepository) {
+    public RepositoryItemWriter<Account> studentWriter(AccountRepository accountRepository) {
         return new RepositoryItemWriterBuilder<Account>()
                 .repository(accountRepository)
                 .methodName("save")
                 .build();
     }
 
-    // 4. STEP: Reader, Processor ve Writer'ı birleştirir
     @Bean
-    @SuppressWarnings("deprecation") // DÜZELTME: IDE'nin verdiği 'chunk deprecated' sarı uyarısını susturur.
-    public Step processCsvStep(JobRepository jobRepository, PlatformTransactionManager transactionManager,
-                               FlatFileItemReader<StudentCsvRecord> reader,
-                               ItemProcessor<StudentCsvRecord, Account> processor,
-                               RepositoryItemWriter<Account> writer) {
-        return new StepBuilder("processCsvStep", jobRepository)
+    @SuppressWarnings("deprecation")
+    public Step processStudentCsvStep(JobRepository jobRepository, PlatformTransactionManager transactionManager,
+                                      FlatFileItemReader<StudentCsvRecord> studentReader,
+                                      ItemProcessor<StudentCsvRecord, Account> studentProcessor,
+                                      RepositoryItemWriter<Account> studentWriter) {
+        return new StepBuilder("processStudentCsvStep", jobRepository)
                 .<StudentCsvRecord, Account>chunk(10, transactionManager)
-                .reader(reader)
-                .processor(processor)
-                .writer(writer)
+                .reader(studentReader)
+                .processor(studentProcessor)
+                .writer(studentWriter)
                 .faultTolerant()
                 .skip(Exception.class)
                 .skipLimit(100)
                 .build();
     }
 
-    // 5. JOB: Tetiklenecek Ana Görev
     @Bean
-    public Job importStudentJob(JobRepository jobRepository, Step processCsvStep) {
+    public Job importStudentJob(JobRepository jobRepository, Step processStudentCsvStep) {
         return new JobBuilder("importStudentJob", jobRepository)
-                .start(processCsvStep)
+                .start(processStudentCsvStep)
                 .build();
     }
-    // --- YENİ: DERSLER İÇİN BATCH KONFİGÜRASYONU ---
+
+    // ==========================================
+    // 2. DERS (COURSE) BATCH YAPILANDIRMASI
+    // ==========================================
 
     @Bean
     @StepScope
-    public FlatFileItemReader<com.example.project3.dto.CourseCsvRecord> courseReader(@Value("#{jobParameters['filePath']}") String filePath) {
-        return new FlatFileItemReaderBuilder<com.example.project3.dto.CourseCsvRecord>()
+    public FlatFileItemReader<CourseCsvRecord> courseReader(@Value("#{jobParameters['filePath']}") String filePath) {
+        return new FlatFileItemReaderBuilder<CourseCsvRecord>()
                 .name("courseItemReader")
                 .resource(new FileSystemResource(filePath))
                 .linesToSkip(1)
                 .delimited()
-                .names("name", "term", "instructor") // CSV'deki kolonlar
-                .targetType(com.example.project3.dto.CourseCsvRecord.class)
+                .names("name", "term", "instructor")
+                .targetType(CourseCsvRecord.class)
                 .build();
     }
 
     @Bean
     @StepScope
-    public ItemProcessor<com.example.project3.dto.CourseCsvRecord, Course> courseProcessor(
-            com.example.project3.repository.CourseRepository courseRepo, JobTracker jobTracker, @Value("#{stepExecution.jobExecution.jobId}") Long jobId) {
+    public ItemProcessor<CourseCsvRecord, Course> courseProcessor(
+            CourseRepository courseRepo,
+            JobTracker jobTracker,
+            @Value("#{stepExecution.jobExecution.jobId}") Long jobId) {
         return record -> {
             if (courseRepo.findByName(record.getName()).isPresent()) {
                 jobTracker.addLog(jobId, "FAILED", "Course - Failed: Course name ('" + record.getName() + "') already exists.");
                 return null;
             }
             jobTracker.addLog(jobId, "SUCCESS", "Course - '" + record.getName() + "' successfully added.");
-            return Course.builder().name(record.getName()).term(record.getTerm()).instructor(record.getInstructor()).build();
+            return Course.builder()
+                    .name(record.getName())
+                    .term(record.getTerm())
+                    .instructor(record.getInstructor())
+                    .build();
         };
     }
 
     @Bean
-    public RepositoryItemWriter<Course> courseWriter(com.example.project3.repository.CourseRepository courseRepo) {
-        return new RepositoryItemWriterBuilder<Course>().repository(courseRepo).methodName("save").build();
+    public RepositoryItemWriter<Course> courseWriter(CourseRepository courseRepo) {
+        return new RepositoryItemWriterBuilder<Course>()
+                .repository(courseRepo)
+                .methodName("save")
+                .build();
     }
 
     @Bean
     @SuppressWarnings("deprecation")
     public Step processCourseCsvStep(JobRepository jobRepository, PlatformTransactionManager transactionManager,
-                                     FlatFileItemReader<com.example.project3.dto.CourseCsvRecord> courseReader,
-                                     ItemProcessor<com.example.project3.dto.CourseCsvRecord, Course> courseProcessor,
+                                     FlatFileItemReader<CourseCsvRecord> courseReader,
+                                     ItemProcessor<CourseCsvRecord, Course> courseProcessor,
                                      RepositoryItemWriter<Course> courseWriter) {
         return new StepBuilder("processCourseCsvStep", jobRepository)
-                .<com.example.project3.dto.CourseCsvRecord, Course>chunk(10, transactionManager)
+                .<CourseCsvRecord, Course>chunk(10, transactionManager)
                 .reader(courseReader)
                 .processor(courseProcessor)
                 .writer(courseWriter)
-                .faultTolerant().skip(Exception.class).skipLimit(100).build();
+                .faultTolerant()
+                .skip(Exception.class)
+                .skipLimit(100)
+                .build();
     }
 
     @Bean
     public Job importCourseJob(JobRepository jobRepository, Step processCourseCsvStep) {
-        return new JobBuilder("importCourseJob", jobRepository).start(processCourseCsvStep).build();
+        return new JobBuilder("importCourseJob", jobRepository)
+                .start(processCourseCsvStep)
+                .build();
     }
 }

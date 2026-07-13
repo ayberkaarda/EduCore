@@ -166,4 +166,20 @@ public class ApiController {
                 .map(e -> new CourseDTO(e.getCourse().getId(), e.getCourse().getName(), e.getCourse().getTerm())) // YENİ
                 .collect(Collectors.toList());
     }
+
+    // --- YENİ EKLENDİ: Toplu Log Silme İşlemi ---
+    // --- GÜNCELLENDİ: Toplu Log Silme İşlemi (Kurşun Geçirmez Versiyon) ---
+    @DeleteMapping("/logs")
+    public ResponseEntity<?> deleteLogs(@RequestParam String ids) {
+        try {
+            // "1,2,3" şeklinde gelen metni parçalayıp Long listesine çeviriyoruz
+            List<Long> idList = java.util.Arrays.stream(ids.split(","))
+                    .map(Long::parseLong)
+                    .collect(Collectors.toList());
+            jobLogRepository.deleteAllById(idList);
+            return ResponseEntity.ok("{\"message\": \"Selected logs deleted successfully.\"}");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("{\"error\": \"Failed to delete logs.\"}");
+        }
+    }
 }
