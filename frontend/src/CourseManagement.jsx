@@ -111,7 +111,7 @@ export default function CourseManagement({ appMode }) {
                         <form onSubmit={handleCreate}>
                             <div className="form-group"><label>Course Name</label><input required type="text" value={newCourse.name} onChange={e => setNewCourse({...newCourse, name: e.target.value})} /></div>
                             <div className="form-group"><label>Term</label><input required type="text" value={newCourse.term} onChange={e => setNewCourse({...newCourse, term: e.target.value})} /></div>
-                            <div className="form-group"><label>Instructor Name</label><input type="text" placeholder="e.g. Engin Demirog" value={newCourse.instructor} onChange={e => setNewCourse({...newCourse, instructor: e.target.value})} /></div>
+                                <div className="form-group"><label>Instructor Name</label><input type="text" placeholder="e.g. Ayberk Arda" value={newCourse.instructor} onChange={e => setNewCourse({...newCourse, instructor: e.target.value})} /></div>
                             <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary">Save</button></div>
                         </form>
                     </div>
