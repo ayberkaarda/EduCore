@@ -131,16 +131,37 @@ public class ApiController {
         account.setLastName(updatedData.getLastName());
         account.setStudentNumber(updatedData.getStudentNumber());
 
-        // 3. IP Adresi güncelleme mantığı (İşte kaydetmeyen kısım burası!)
-        if (updatedData.getIpAddress() != null && !updatedData.getIpAddress().trim().isEmpty()) {
-            // İsteğe bağlı: Burada IpAddressUtil validasyonu yapabilirsin
-            account.setIpAddress(updatedData.getIpAddress());
+        // 3. IP Adresi güncelleme ve KONTROL mantığı
+        String newIp = updatedData.getIpAddress();
+
+        if (newIp != null && !newIp.trim().isEmpty()) {
+
+            // KURAL 1: Kusursuz IPv4 formatında mı?
+            if (!IpAddressUtil.isValidIpv4(newIp)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Geçersiz IPv4 formatı!"));
+            }
+
+            // KURAL 2: Girilen IP, izin verilen IpBlock'lardan (RANGE, CIDR, STATIC) birinin içinde mi?
+            long ipAsLong = IpAddressUtil.ipToLong(newIp);
+            boolean isIpAllowed = ipBlockRepository.findAll().stream()
+                    .anyMatch(block -> ipAsLong >= block.getStartIp() && ipAsLong <= block.getEndIp());
+
+            if (!isIpAllowed) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Bu IP adresi tanımlanmış IP aralıklarında veya alt ağlarda (Subnet) bulunmuyor!"));
+            }
+
+            account.setIpAddress(newIp);
         } else {
             account.setIpAddress(null); // İptal edilirse boşalt
         }
 
-        // 4. Veritabanına kaydet
-        accountRepository.save(account);
+        // 4. Veritabanına kaydet ve KURAL 3: Unique Constraint Hatasını Yakala
+        try {
+            accountRepository.save(account);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // Eğer veritabanı Unique Constraint patlatırsa buraya düşer
+            return ResponseEntity.badRequest().body(Map.of("error", "Bu IP adresi başka bir öğrenciye atanmış! Her öğrenci farklı IP almalıdır."));
+        }
 
         return ResponseEntity.ok(Map.of("message", "Öğrenci başarıyla güncellendi."));
     }
