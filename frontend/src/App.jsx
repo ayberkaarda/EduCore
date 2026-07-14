@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { BookOpen, ShieldCheck, LogOut, Lock, ArrowRight, FileText, Globe } from 'lucide-react' // DÜZELTME: FileText ikonu eklendi
+import { BookOpen, ShieldCheck, LogOut, Lock, ArrowRight, FileText, Globe, Users, Menu, X } from 'lucide-react' // DÜZELTME: FileText ikonu eklendi
 import axios from 'axios'
 import StudentDetail from './StudentDetail'
 import StudentList from './StudentList'
@@ -11,6 +11,15 @@ import Home from './Home'
 import IpManagement from './IpManagement'
 import './App.css'
 
+axios.interceptors.request.use(config => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, error => {
+  return Promise.reject(error);
+});
 const Unauthorized = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
       <div className="card" style={{ textAlign: 'center', padding: '4rem 3rem', maxWidth: '480px', width: '100%', position: 'relative', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)', borderRadius: '1.5rem', border: '1px solid #e5e7eb' }}>
