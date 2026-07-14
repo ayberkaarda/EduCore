@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { Search, ChevronRight, User, Loader2, Plus, Edit, Trash2 } from 'lucide-react'
+import { Search, ChevronRight, User, Loader2, Plus, Edit, Trash2, Network } from 'lucide-react' // YENİ: Network ikonu eklendi
 import toast, { Toaster } from 'react-hot-toast'
 import { useDebounce } from './hooks/useDebounce'
 
@@ -21,9 +21,8 @@ export default function StudentList({ appMode }) {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
-    // DÜZELTME: studentNumber alanları eklendi
     const [newStudent, setNewStudent] = useState({ firstName: '', lastName: '', studentNumber: '' })
-    const [editStudent, setEditStudent] = useState({ id: null, firstName: '', lastName: '', studentNumber: '' })
+    const [editStudent, setEditStudent] = useState({ id: null, firstName: '', lastName: '', studentNumber: '', ipAddress: '' })
 
     const debouncedSearchTerm = useDebounce(searchTerm, 500)
     const navigate = useNavigate()
@@ -65,22 +64,34 @@ export default function StudentList({ appMode }) {
     }
 
     const openEditModal = (student) => {
-        setEditStudent({ id: student.id, firstName: student.firstName, lastName: student.lastName, studentNumber: student.studentNumber || '' })
+        // YENİ: Edit Modal'ı açılırken öğrencinin mevcut IP adresini state'e yüklüyoruz
+        setEditStudent({
+            id: student.id,
+            firstName: student.firstName,
+            lastName: student.lastName,
+            studentNumber: student.studentNumber || '',
+            ipAddress: student.ipAddress || ''
+        })
         setIsEditModalOpen(true)
     }
 
     const handleUpdateStudent = async (e) => {
         e.preventDefault()
         try {
+            // YENİ: Güncelleme esnasında ipAddress verisi Backend'e gönderiliyor
             await axios.put(`${API_BASE}/accounts/${editStudent.id}`, {
                 firstName: editStudent.firstName,
                 lastName: editStudent.lastName,
-                studentNumber: editStudent.studentNumber
+                studentNumber: editStudent.studentNumber,
+                ipAddress: editStudent.ipAddress
             })
             toast.success('Student updated successfully!')
             setIsEditModalOpen(false)
             fetchStudents(debouncedSearchTerm, page)
-        } catch (error) { toast.error('Failed to update student.') }
+        } catch (error) {
+            // YENİ: Backend'den dönen IP Validasyon hatalarını (Örn: Havuzda yok, başkasında var) ekranda göster
+            toast.error(error.response?.data?.error || 'Failed to update student.')
+        }
     }
 
     return (
@@ -89,7 +100,7 @@ export default function StudentList({ appMode }) {
             <div className="detail-header">
                 <div>
                     <h2>Student Management</h2>
-                    <p className="text-gray">Select a student from the list to view courses.</p>
+                    <p className="text-gray">Select a student from the list to view courses or assign IP.</p>
                 </div>
 
                 <div className="search-box" style={{ position: 'relative', width: '300px' }}>
@@ -114,6 +125,8 @@ export default function StudentList({ appMode }) {
                                     <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
                                         <th style={{ padding: '1rem', color: '#6b7280' }}>ID</th>
                                         <th style={{ padding: '1rem', color: '#6b7280' }}>Full Name</th>
+                                        {/* YENİ: Tablo başlığı eklendi */}
+                                        <th style={{ padding: '1rem', color: '#6b7280' }}>IP Address</th>
                                         <th style={{ padding: '1rem', textAlign: 'right', color: '#6b7280' }}>Actions</th>
                                     </tr>
                                     </thead>
@@ -126,6 +139,16 @@ export default function StudentList({ appMode }) {
                                                     <div style={{ backgroundColor: '#f3f4f6', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={18} color="#4f46e5"/></div>
                                                     {student.firstName} {student.lastName}
                                                 </div>
+                                            </td>
+                                            {/* YENİ: IP Adresi gösterimi eklendi */}
+                                            <td style={{ padding: '1rem' }}>
+                                                {student.ipAddress ? (
+                                                    <span className="badge" style={{ backgroundColor: '#f0fdf4', color: '#166534', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                        <Network size={14} /> {student.ipAddress}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray" style={{ fontSize: '0.9rem' }}>Not Assigned</span>
+                                                )}
                                             </td>
                                             <td style={{ padding: '1rem', textAlign: 'right' }}>
                                                 <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
@@ -155,7 +178,6 @@ export default function StudentList({ appMode }) {
                         )}
             </div>
 
-            {/* DÜZELTME: Formlara Student ID inputları eklendi */}
             {isModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">
@@ -178,6 +200,11 @@ export default function StudentList({ appMode }) {
                             <div className="form-group"><label>First Name</label><input required type="text" value={editStudent.firstName} onChange={e => setEditStudent({...editStudent, firstName: e.target.value})} /></div>
                             <div className="form-group"><label>Last Name</label><input required type="text" value={editStudent.lastName} onChange={e => setEditStudent({...editStudent, lastName: e.target.value})} /></div>
                             <div className="form-group"><label>Student ID</label><input required type="text" value={editStudent.studentNumber} onChange={e => setEditStudent({...editStudent, studentNumber: e.target.value})} /></div>
+                            {/* YENİ: IP Atama Inputu Eklendi */}
+                            <div className="form-group">
+                                <label>Assigned IP Address <span className="text-gray" style={{fontSize: '0.8rem'}}>(Optional)</span></label>
+                                <input type="text" placeholder="e.g. 192.168.1.15" value={editStudent.ipAddress} onChange={e => setEditStudent({...editStudent, ipAddress: e.target.value})} />
+                            </div>
                             <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary" style={{backgroundColor: '#f59e0b'}}>Update</button></div>
                         </form>
                     </div>
