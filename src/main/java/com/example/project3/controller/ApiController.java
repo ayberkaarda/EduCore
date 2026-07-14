@@ -122,35 +122,20 @@ public class ApiController {
     public ResponseEntity<?> updateAccount(@PathVariable Long id, @RequestBody Account updatedData) {
         Account account = accountRepository.findById(id).orElseThrow();
 
-        // IP validasyonu ve çakışma kontrolü
-        if (updatedData.getIpAddress() != null && !updatedData.getIpAddress().isEmpty()) {
-            String newIp = updatedData.getIpAddress();
+        // Temel alanları güncelle
+        account.setFirstName(updatedData.getFirstName());
+        account.setLastName(updatedData.getLastName());
+        account.setStudentNumber(updatedData.getStudentNumber());
 
-            // 1. Format kontrolü
-            if (!IpAddressUtil.isValidIpv4(newIp))
-                return ResponseEntity.badRequest().body(Map.of("error", "Invalid IP Format"));
-
-            // 2. Başkasında mı kontrolü
-            if (accountRepository.findByIpAddress(newIp).isPresent() &&
-                    !accountRepository.findByIpAddress(newIp).get().getId().equals(id))
-                return ResponseEntity.badRequest().body(Map.of("error", "IP already assigned to another student"));
-
-            // 3. Havuzda mı kontrolü (IpBlock)
-            long ipVal = IpAddressUtil.ipToLong(newIp);
-            boolean inRange = ipBlockRepository.findAll().stream()
-                    .anyMatch(block -> ipVal >= block.getStartIp() && ipVal <= block.getEndIp());
-
-            if (!inRange)
-                return ResponseEntity.badRequest().body(Map.of("error", "IP not in allowed range/subnet"));
-
-            account.setIpAddress(newIp);
-        } else {
-            account.setIpAddress(null);
+        // --- BU SATIR EKSİK OLABİLİR ---
+        // IP adresini güncelleme mantığı:
+        if (updatedData.getIpAddress() != null) {
+            account.setIpAddress(updatedData.getIpAddress());
         }
-        // ... diğer alan güncellemeleri
-        return ResponseEntity.ok(accountRepository.save(account));
-    }
 
+        accountRepository.save(account);
+        return ResponseEntity.ok(Map.of("message", "Updated successfully."));
+    }
     @PostMapping("/courses")
     public ResponseEntity<?> createCourse(@RequestBody Course course) {
         Course savedCourse = courseRepository.save(course);
