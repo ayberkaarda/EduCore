@@ -120,21 +120,27 @@ public class ApiController {
 
     @PutMapping("/accounts/{id}")
     public ResponseEntity<?> updateAccount(@PathVariable Long id, @RequestBody Account updatedData) {
-        Account account = accountRepository.findById(id).orElseThrow();
+        // 1. Öğrenciyi veritabanından çek
+        Account account = accountRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Öğrenci bulunamadı"));
 
-        // Temel alanları güncelle
+        // 2. Temel bilgileri güncelle
         account.setFirstName(updatedData.getFirstName());
         account.setLastName(updatedData.getLastName());
         account.setStudentNumber(updatedData.getStudentNumber());
 
-        // --- BU SATIR EKSİK OLABİLİR ---
-        // IP adresini güncelleme mantığı:
-        if (updatedData.getIpAddress() != null) {
+        // 3. IP Adresi güncelleme mantığı (İşte kaydetmeyen kısım burası!)
+        if (updatedData.getIpAddress() != null && !updatedData.getIpAddress().trim().isEmpty()) {
+            // İsteğe bağlı: Burada IpAddressUtil validasyonu yapabilirsin
             account.setIpAddress(updatedData.getIpAddress());
+        } else {
+            account.setIpAddress(null); // İptal edilirse boşalt
         }
 
+        // 4. Veritabanına kaydet
         accountRepository.save(account);
-        return ResponseEntity.ok(Map.of("message", "Updated successfully."));
+
+        return ResponseEntity.ok(Map.of("message", "Öğrenci başarıyla güncellendi."));
     }
     @PostMapping("/courses")
     public ResponseEntity<?> createCourse(@RequestBody Course course) {
