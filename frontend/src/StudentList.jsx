@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { Search, ChevronRight, User, Loader2, Plus, Edit, Trash2, Network, Globe } from 'lucide-react' // YENİ: Network ikonu eklendi
+import { Search, ChevronRight, User, Loader2, Plus, Edit, Trash2, Network } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import { useDebounce } from './hooks/useDebounce'
 
@@ -143,11 +143,9 @@ export default function StudentList({ appMode }) {
                                             {/* YENİ: IP Adresi gösterimi eklendi */}
                                             <td style={{ padding: '1rem' }}>
                                                 {student.ipAddress ? (
-                                                    <span className="badge" style={{ backgroundColor: '#f0fdf4', color: '#166534', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                        <Network size={14} /> {student.ipAddress}
-                                                    </span>
+                                                    <span className="badge" style={{ backgroundColor: '#eff6ff', color: '#1e40af', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Network size={14} /> {student.ipAddress}</span>
                                                 ) : (
-                                                    <span className="text-gray" style={{ fontSize: '0.9rem' }}>Not Assigned</span>
+                                                    <span className="text-gray" style={{ fontSize: '0.85rem' }}>Unassigned</span>
                                                 )}
                                             </td>
                                             <td style={{ padding: '1rem', textAlign: 'right' }}>

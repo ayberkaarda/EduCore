@@ -5,12 +5,14 @@ import com.example.project3.dto.EnrollmentRequest;
 import com.example.project3.dto.AccountDTO;
 import com.example.project3.entity.*;
 import com.example.project3.repository.*;
+import com.example.project3.util.IpAddressUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @CrossOrigin(origins = "http://localhost:5173")
@@ -119,37 +121,34 @@ public class ApiController {
     @PutMapping("/accounts/{id}")
     public ResponseEntity<?> updateAccount(@PathVariable Long id, @RequestBody Account updatedData) {
         Account account = accountRepository.findById(id).orElseThrow();
-        account.setFirstName(updatedData.getFirstName());
-        account.setLastName(updatedData.getLastName());
-        account.setStudentNumber(updatedData.getStudentNumber());
 
-        String newIp = updatedData.getIpAddress();
-        if (newIp != null && !newIp.trim().isEmpty()) {
-            if (!com.example.project3.util.IpAddressUtil.isValidIpv4(newIp)) {
-                return ResponseEntity.badRequest().body("{\"error\": \"Invalid IPv4 address format.\"}");
-            }
+        // IP validasyonu ve çakışma kontrolü
+        if (updatedData.getIpAddress() != null && !updatedData.getIpAddress().isEmpty()) {
+            String newIp = updatedData.getIpAddress();
 
-            // 1. IP Başkasına Ait mi Kontrolü
-            Account existingIpUser = accountRepository.findByIpAddress(newIp).orElse(null);
-            if (existingIpUser != null && !existingIpUser.getId().equals(account.getId())) {
-                return ResponseEntity.badRequest().body("{\"error\": \"This IP is already assigned to another student!\"}");
-            }
+            // 1. Format kontrolü
+            if (!IpAddressUtil.isValidIpv4(newIp))
+                return ResponseEntity.badRequest().body(Map.of("error", "Invalid IP Format"));
 
-            // 2. IP İzin Verilen Havuzlarda Var mı Kontrolü
-            long ipLong = com.example.project3.util.IpAddressUtil.ipToLong(newIp);
-            boolean inPool = ipBlockRepository.findAll().stream()
-                    .anyMatch(b -> ipLong >= b.getStartIp() && ipLong <= b.getEndIp());
+            // 2. Başkasında mı kontrolü
+            if (accountRepository.findByIpAddress(newIp).isPresent() &&
+                    !accountRepository.findByIpAddress(newIp).get().getId().equals(id))
+                return ResponseEntity.badRequest().body(Map.of("error", "IP already assigned to another student"));
 
-            if (!inPool) {
-                return ResponseEntity.badRequest().body("{\"error\": \"This IP address is not within any defined allowed ranges or subnets.\"}");
-            }
+            // 3. Havuzda mı kontrolü (IpBlock)
+            long ipVal = IpAddressUtil.ipToLong(newIp);
+            boolean inRange = ipBlockRepository.findAll().stream()
+                    .anyMatch(block -> ipVal >= block.getStartIp() && ipVal <= block.getEndIp());
+
+            if (!inRange)
+                return ResponseEntity.badRequest().body(Map.of("error", "IP not in allowed range/subnet"));
+
             account.setIpAddress(newIp);
         } else {
-            account.setIpAddress(null); // Boş bırakılırsa IP'yi siler
+            account.setIpAddress(null);
         }
-
-        accountRepository.save(account);
-        return ResponseEntity.ok("{\"message\": \"Updated successfully.\"}");
+        // ... diğer alan güncellemeleri
+        return ResponseEntity.ok(accountRepository.save(account));
     }
 
     @PostMapping("/courses")

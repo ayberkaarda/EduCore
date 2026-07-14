@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { BookOpen, ShieldCheck, LogOut, Lock, ArrowRight, FileText } from 'lucide-react' // DÜZELTME: FileText ikonu eklendi
+import { BookOpen, ShieldCheck, LogOut, Lock, ArrowRight, FileText, Globe } from 'lucide-react' // DÜZELTME: FileText ikonu eklendi
 import axios from 'axios'
 import StudentDetail from './StudentDetail'
 import StudentList from './StudentList'
