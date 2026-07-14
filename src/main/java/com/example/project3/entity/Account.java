@@ -34,6 +34,9 @@ public class Account implements UserDetails {
     @Enumerated(EnumType.STRING)
     private Role role;
 
+    @Column(unique = true) // FARKLI ÖĞRENCİLER AYNI IP'Yİ ALAMAZ
+    private String ipAddress;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));

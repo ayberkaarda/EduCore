@@ -22,6 +22,7 @@ public class ApiController {
     @Autowired private CourseRepository courseRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private IpBlockRepository ipBlockRepository;
     @Autowired private JobLogRepository jobLogRepository;
 
     // --- 1. DERS EKLEME (GÜVENLİK KALKANLI) ---
@@ -121,6 +122,32 @@ public class ApiController {
         account.setFirstName(updatedData.getFirstName());
         account.setLastName(updatedData.getLastName());
         account.setStudentNumber(updatedData.getStudentNumber());
+
+        String newIp = updatedData.getIpAddress();
+        if (newIp != null && !newIp.trim().isEmpty()) {
+            if (!com.example.project3.util.IpAddressUtil.isValidIpv4(newIp)) {
+                return ResponseEntity.badRequest().body("{\"error\": \"Invalid IPv4 address format.\"}");
+            }
+
+            // 1. IP Başkasına Ait mi Kontrolü
+            Account existingIpUser = accountRepository.findByIpAddress(newIp).orElse(null);
+            if (existingIpUser != null && !existingIpUser.getId().equals(account.getId())) {
+                return ResponseEntity.badRequest().body("{\"error\": \"This IP is already assigned to another student!\"}");
+            }
+
+            // 2. IP İzin Verilen Havuzlarda Var mı Kontrolü
+            long ipLong = com.example.project3.util.IpAddressUtil.ipToLong(newIp);
+            boolean inPool = ipBlockRepository.findAll().stream()
+                    .anyMatch(b -> ipLong >= b.getStartIp() && ipLong <= b.getEndIp());
+
+            if (!inPool) {
+                return ResponseEntity.badRequest().body("{\"error\": \"This IP address is not within any defined allowed ranges or subnets.\"}");
+            }
+            account.setIpAddress(newIp);
+        } else {
+            account.setIpAddress(null); // Boş bırakılırsa IP'yi siler
+        }
+
         accountRepository.save(account);
         return ResponseEntity.ok("{\"message\": \"Updated successfully.\"}");
     }
@@ -180,6 +207,59 @@ public class ApiController {
             return ResponseEntity.ok("{\"message\": \"Selected logs deleted successfully.\"}");
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("{\"error\": \"Failed to delete logs.\"}");
+        }
+    }
+    @GetMapping("/ip-blocks")
+    public List<IpBlock> getAllIpBlocks() {
+        return ipBlockRepository.findAll();
+    }
+
+    @DeleteMapping("/ip-blocks/{id}")
+    public ResponseEntity<?> deleteIpBlock(@PathVariable Long id) {
+        ipBlockRepository.deleteById(id);
+        return ResponseEntity.ok("{\"message\": \"IP Block deleted.\"}");
+    }
+
+    @PostMapping("/ip-blocks")
+    public ResponseEntity<?> createIpBlock(@RequestBody IpBlock block) {
+        try {
+            if ("STATIC".equals(block.getType())) {
+                if (!com.example.project3.util.IpAddressUtil.isValidIpv4(block.getOriginalValue()))
+                    throw new Exception("Invalid IPv4 address format.");
+                long val = com.example.project3.util.IpAddressUtil.ipToLong(block.getOriginalValue());
+                block.setStartIp(val);
+                block.setEndIp(val);
+            } else if ("RANGE".equals(block.getType())) {
+                String[] parts = block.getOriginalValue().split("-");
+                if (parts.length != 2) throw new Exception("Invalid Range format (e.g. 192.168.1.1-192.168.1.10).");
+                String start = parts[0].trim();
+                String end = parts[1].trim();
+                if (!com.example.project3.util.IpAddressUtil.isValidIpv4(start) || !com.example.project3.util.IpAddressUtil.isValidIpv4(end))
+                    throw new Exception("Invalid IPs inside range.");
+                long startL = com.example.project3.util.IpAddressUtil.ipToLong(start);
+                long endL = com.example.project3.util.IpAddressUtil.ipToLong(end);
+                if (endL < startL) throw new Exception("End IP cannot be smaller than Start IP.");
+                block.setStartIp(startL);
+                block.setEndIp(endL);
+            } else if ("CIDR".equals(block.getType())) {
+                String[] parts = block.getOriginalValue().split("/");
+                if (parts.length != 2) throw new Exception("Invalid CIDR format (e.g. 192.168.1.0/24).");
+                String ip = parts[0].trim();
+                int prefix = Integer.parseInt(parts[1].trim());
+                if (!com.example.project3.util.IpAddressUtil.isValidIpv4(ip) || prefix < 0 || prefix > 32)
+                    throw new Exception("Invalid CIDR values.");
+                long ipL = com.example.project3.util.IpAddressUtil.ipToLong(ip);
+                long mask = prefix == 0 ? 0 : (0xFFFFFFFFL << (32 - prefix)) & 0xFFFFFFFFL;
+                long startL = ipL & mask;
+                long endL = startL | (~mask & 0xFFFFFFFFL);
+                block.setStartIp(startL);
+                block.setEndIp(endL);
+            } else {
+                throw new Exception("Unknown Type.");
+            }
+            return ResponseEntity.ok(ipBlockRepository.save(block));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("{\"error\": \"" + e.getMessage() + "\"}");
         }
     }
 }

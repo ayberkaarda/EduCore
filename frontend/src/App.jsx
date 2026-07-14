@@ -8,6 +8,7 @@ import CourseManagement from './CourseManagement'
 import JobLogs from './JobLogs' // DÜZELTME: JobLogs sayfası eklendi
 import Login from './Login'
 import Home from './Home'
+import IpManagement from './IpManagement'
 import './App.css'
 
 const Unauthorized = () => (
@@ -78,6 +79,9 @@ const AppLayout = ({ authData, setAuthData, children }) => {
                   </Link>
                 </li>
             )}
+            {authData.role === 'ADMIN' && (
+                <li><Link to="/ips"><Globe size={16} style={{display:'inline', verticalAlign:'middle', marginRight:'5px'}}/> IP Setup</Link></li>
+            )}
           </ul>
 
           <div className="user-profile">
@@ -143,6 +147,7 @@ function App() {
                   <Route path="/students/:id" element={<StudentDetail appMode={{ role: authData.role }} />} />
                   <Route path="/courses" element={<CourseManagement appMode={{ role: authData.role }} />} />
                   {/* DÜZELTME: Log sayfası rotası eklendi */}
+                  <Route path="/ips" element={<IpManagement appMode={{ role: authData.role }} />} />
                   <Route path="/logs" element={<JobLogs appMode={{ role: authData.role }} />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
