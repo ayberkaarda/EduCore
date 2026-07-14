@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { Search, ChevronRight, User, Loader2, Plus, Edit, Trash2, Network } from 'lucide-react' // YENİ: Network ikonu eklendi
+import { Search, ChevronRight, User, Loader2, Plus, Edit, Trash2, Network, Globe } from 'lucide-react' // YENİ: Network ikonu eklendi
 import toast, { Toaster } from 'react-hot-toast'
 import { useDebounce } from './hooks/useDebounce'
 
