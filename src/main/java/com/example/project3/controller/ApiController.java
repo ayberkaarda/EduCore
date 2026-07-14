@@ -74,7 +74,8 @@ public class ApiController {
     ) {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         return accountRepository.searchAccountsByRole(Role.USER, search, pageable)
-                .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole()));
+                // BURAYA a.getIpAddress() EKLENDİ
+                .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole(), a.getIpAddress()));
     }
 
     @GetMapping("/accounts")
@@ -85,9 +86,9 @@ public class ApiController {
     ) {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         return accountRepository.searchAllAccounts(search, pageable)
-                .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole()));
+                // BURAYA a.getIpAddress() EKLENDİ
+                .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole(), a.getIpAddress()));
     }
-
     @PutMapping("/accounts/{id}/role")
     public ResponseEntity<?> updateRole(@PathVariable Long id, @RequestBody java.util.Map<String, String> payload) {
         Account account = accountRepository.findById(id).orElseThrow();
@@ -121,6 +122,7 @@ public class ApiController {
     @PutMapping("/accounts/{id}")
     public ResponseEntity<?> updateAccount(@PathVariable Long id, @RequestBody Account updatedData) {
         // 1. Öğrenciyi veritabanından çek
+        System.out.println("REACT'TAN GELEN IP ADRESİ: " + updatedData.getIpAddress());
         Account account = accountRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Öğrenci bulunamadı"));
 
