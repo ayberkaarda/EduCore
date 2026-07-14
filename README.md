@@ -1,6 +1,6 @@
-# EduCore - Educational Management System
+# EduCore - Educational Management System & Security Framework
 
-Bu proje, arka planda **Spring Boot** (Java, Spring Data JPA, Spring Security) ve ön planda **React** (Vite) kullanılarak geliştirilmiş, güvenli ve yüksek performanslı bir eğitim yönetim sistemidir. Uygulama, **JWT (JSON Web Token)** tabanlı kimlik doğrulama mimarisine ek olarak, sistem yöneticilerinin büyük veri setlerini asenkron olarak sisteme işlemesine olanak tanıyan bir **Spring Batch / CSV İşleme** mekanizması içerir.
+Bu proje, arka planda **Spring Boot** (Java, Spring Data JPA, Spring Security) ve ön planda **React** (Vite) kullanılarak geliştirilmiş kapsamlı bir eğitim yönetim sistemidir. Uygulama; **Spring Batch** tabanlı asenkron CSV işleme motoru ve JWT güvenliğinin yanı sıra, sisteme yönelik siber tehditleri engellemek amacıyla ağ düzeyinde güvenlik sağlayan bir **IP Bloklama (IP Management/IpBlock)** modülü içerir.
 
 # 🛠️ Mimari ve Teknolojiler
 
@@ -11,32 +11,30 @@ Bu proje, arka planda **Spring Boot** (Java, Spring Data JPA, Spring Security) v
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
 
 ### 🌓 Ana Sayfa ve Giriş Sayfası
-| Dashboard | Login Page) |
+| Dashboard | Login Page |
 |:-------------------------:|:------------------------:|
 | <img src="./screenshots/maindash.jpeg" width="100%" alt="dashboard Home"> | <img src="./screenshots/loginPage.jpeg" width="100%" alt="Loginpage"> |
 
-## ✨ CRUD & Güvenlik Özellikleri
-
-Uygulama; Kullanıcı (Account), Kurs (Course) ve Kayıt (Enrollment) mekanizmaları üzerinde şu kabiliyetleri sunar:
+## ✨ Gelişmiş Özellikler
 
 * **JWT Kimlik Doğrulama:** `AuthController` ve `JwtService` ile güçlendirilmiş güvenli oturum açma, kayıt ve rol tabanlı (ADMIN/USER) koruma altyapısı.
-* **Asenkron CSV Toplu İşleme (Batch):** `csv_uploads/` dizini altındaki kurs listeleri ve öğrenci verileri gibi CSV dosyalarını otomatik olarak işleyen `BatchConfig` ve `CsvJobService` mekanizması. Başarıyla işlenen dosyalar `.done`, hatalı olanlar `.fail` olarak etiketlenir.
-* **İş Takip Günlükleri (Job Logs):** Toplu veri yükleme işlemlerinin durumunu, başarı oranlarını ve hata detaylarını kaydeden `JobTracker` ve `JobLog` entegrasyonu.
-* **Kapsamlı Yönetim Paneli:** Kurs kataloğu, öğrenci listesi, rol yönetimi ve toplu iş loglarının izlenebildiği (`JobLogs.jsx`) modüler React arayüzü.
+* **Asenkron CSV Toplu İşleme:** `csv_uploads/` altındaki veri setlerini arka planda işleyen `BatchConfig` mimarisi. Başarıyla işlenen dosyalar `.done`, hatalı olanlar `.fail` olarak işaretlenir ve `JobLogs.jsx` üzerinden takip edilir.
+* **IP Yönetimi & Güvenlik:** Kötü niyetli veya yetkisiz erişim isteklerini engellemek için geliştirilen `IpAddressUtil` ve `IpBlockRepository` katmanı. Sistem yöneticileri `IpManagement.jsx` paneli üzerinden şüpheli IP adreslerini dinamik olarak engelleyebilir.
+* **Kapsamlı Yönetim Paneli:** Kurs kataloğu, öğrenci listesi, rol yönetimi, toplu iş logları ve IP yönetimini içeren modüler arayüz.
 
 ---
-## 🧪 API & Frontend Testing
-Sistem REST mimarisi `ApiController` ve `AuthController` üzerinden test edilmiş; JWT filtreleme mekanizmaları (`JwtAuthenticationFilter`) ve `GlobalExceptionHandler` sınıfları ile hata/güvenlik süreçleri uçtan uca doğrulanmıştır. Ön yüz asenkron çağrıları ve geciktirme (`useDebounce`) mekanizmalarıyla optimize edilmiştir.
+## 🧪 API & Arka Plan Testing
+Sistem REST mimarisi `ApiController` ve `AuthController` üzerinden doğrulanmış; JWT filtreleme mekanizmaları (`JwtAuthenticationFilter`) ile ağ güvenlik katmanları entegre edilerek istemci-sunucu arasındaki veri güvenliği tescillenmiştir.
+
 ---
 ## 📂 Dizin Yapısı ve Önemli Konumlar
 
-* **`controller/`**: Güvenlik ve veri akışını yöneten `AuthController` ve `ApiController` sınıfları.
-* **`config/`**: Güvenlik yapılandırmaları (`SecurityConfig`), toplu iş yönetimi (`BatchConfig`) ve asenkron iş takipçilerini (`JobTracker`) içerir.
-* **`security/`**: JWT yetkilendirmesini ve CORS konfigürasyonlarını içeren `SecurityConfig` ve servis katmanları.
-* **`service/` & `controller/`**: CSV dosyalarını işleyen `CsvJobService` ile istemci taleplerini yöneten API uç noktaları.
-* **`csv_uploads/`**: Sisteme yüklenen ve işleme durumlarına göre (`.done`/`.fail`) ayrıştırılan CSV veri setlerinin tutulduğu dizin.
-* **`entity/` & `dto/`**: Veritabanı şemaları (`Account`, `Course`, `Enrollment`) ve veri transfer nesneleri (DTO).
-* **`frontend/src/`**: Login ekranı, kurs yönetim paneli ve öğrenci profillerini barındıran modern React arayüz bileşenleri.
+* **`controller/`**: Güvenlik, veri akışı ve IP engelleme isteklerini yöneten denetleyiciler.
+* **`util/` & `repository/`**: IP doğrulama mantığını barındıran `IpAddressUtil` ve veritabanı şemaları (`IpBlockRepository`, `JobLogRepository`).
+* **`config/`**: Güvenlik yapılandırmaları (`SecurityConfig`), toplu iş yönetimi (`BatchConfig`) ve asenkron iş takipçileri (`JobTracker`).
+* **`csv_uploads/`**: Sisteme yüklenen toplu veri setlerinin tutulduğu dizin.
+* **`frontend/src/`**: `IpManagement.jsx`, `JobLogs.jsx` ve modern React bileşenlerinin yer aldığı arayüz dizini.
+
 ---
 
 ## 🛠️ Kurulum & Çalıştırma (Local Development)
