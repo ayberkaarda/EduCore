@@ -77,6 +77,7 @@ export default function StudentList({ appMode }) {
 
     const handleUpdateStudent = async (e) => {
         e.preventDefault()
+        console.log("Gönderilen Veri:", editStudent); // Konsolda IP'nin olup olmadığını kontrol et
         try {
             // YENİ: Güncelleme esnasında ipAddress verisi Backend'e gönderiliyor
             await axios.put(`${API_BASE}/accounts/${editStudent.id}`, {
