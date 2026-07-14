@@ -122,9 +122,9 @@ public class ApiController {
     @PutMapping("/accounts/{id}")
     public ResponseEntity<?> updateAccount(@PathVariable Long id, @RequestBody Account updatedData) {
         // 1. Öğrenciyi veritabanından çek
-        System.out.println("REACT'TAN GELEN IP ADRESİ: " + updatedData.getIpAddress());
+        System.out.println("react ip adress: " + updatedData.getIpAddress());
         Account account = accountRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Öğrenci bulunamadı"));
+                .orElseThrow(() -> new RuntimeException("Student could not be found."));
 
         // 2. Temel bilgileri güncelle
         account.setFirstName(updatedData.getFirstName());
@@ -138,7 +138,7 @@ public class ApiController {
 
             // KURAL 1: Kusursuz IPv4 formatında mı?
             if (!IpAddressUtil.isValidIpv4(newIp)) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Geçersiz IPv4 formatı!"));
+                return ResponseEntity.badRequest().body(Map.of("error", "Invalid format"));
             }
 
             // KURAL 2: Girilen IP, izin verilen IpBlock'lardan (RANGE, CIDR, STATIC) birinin içinde mi?
@@ -147,7 +147,7 @@ public class ApiController {
                     .anyMatch(block -> ipAsLong >= block.getStartIp() && ipAsLong <= block.getEndIp());
 
             if (!isIpAllowed) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Bu IP adresi tanımlanmış IP aralıklarında veya alt ağlarda (Subnet) bulunmuyor!"));
+                return ResponseEntity.badRequest().body(Map.of("error", "This IP address is not located in defined IP December or subnets (Subnet)!"));
             }
 
             account.setIpAddress(newIp);
@@ -160,10 +160,10 @@ public class ApiController {
             accountRepository.save(account);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             // Eğer veritabanı Unique Constraint patlatırsa buraya düşer
-            return ResponseEntity.badRequest().body(Map.of("error", "Bu IP adresi başka bir öğrenciye atanmış! Her öğrenci farklı IP almalıdır."));
+            return ResponseEntity.badRequest().body(Map.of("error", "This IP address was assigned to another student! Each student should get a different IP."));
         }
 
-        return ResponseEntity.ok(Map.of("message", "Öğrenci başarıyla güncellendi."));
+        return ResponseEntity.ok(Map.of("message", "Student successfully updated."));
     }
     @PostMapping("/courses")
     public ResponseEntity<?> createCourse(@RequestBody Course course) {
