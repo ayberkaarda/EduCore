@@ -202,7 +202,15 @@ export default function StudentList({ appMode }) {
                             {/* YENİ: IP Atama Inputu Eklendi */}
                             <div className="form-group">
                                 <label>Assigned IP Address <span className="text-gray" style={{fontSize: '0.8rem'}}>(Optional)</span></label>
-                                <input type="text" placeholder="e.g. 192.168.1.15" value={editStudent.ipAddress} onChange={e => setEditStudent({...editStudent, ipAddress: e.target.value})} />
+                                <input
+                                    type="text"
+                                    placeholder="e.g. 192.168.1.15"
+                                    value={editStudent.ipAddress || ""}
+                                    onChange={e => setEditStudent({...editStudent, ipAddress: e.target.value})}
+                                    pattern="^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+                                    title="Geçerli bir IPv4 adresi giriniz (Örn: 192.168.1.5)"
+                                    className="form-control"
+                                />
                             </div>
                             <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary" style={{backgroundColor: '#f59e0b'}}>Update</button></div>
                         </form>

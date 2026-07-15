@@ -3,6 +3,15 @@ import axios from 'axios'
 import toast, { Toaster } from 'react-hot-toast'
 import { Globe, Plus, Trash2, Loader2 } from 'lucide-react'
 
+// YARDIMCI FONKSİYONLAR: IPv4 format kontrolü ve matematiksel büyüklük kontrolü
+const isValidIpv4 = (ip) => {
+    return /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ip);
+};
+
+const ipToLong = (ip) => {
+    return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
+};
+
 export default function IpManagement({ appMode }) {
     const isAdmin = appMode.role === 'ADMIN'
     const [blocks, setBlocks] = useState([])
@@ -23,8 +32,38 @@ export default function IpManagement({ appMode }) {
 
     const handleCreate = async (e) => {
         e.preventDefault()
-        let originalValue = form.val1
-        if (form.type === 'RANGE') originalValue = `${form.val1}-${form.val2}`
+
+        // --- YENİ: FRONTEND GÜVENLİK KONTROLLERİ ---
+        const v1 = form.val1.trim();
+        const v2 = form.val2.trim();
+
+        if (form.type === 'STATIC') {
+            if (!isValidIpv4(v1)) {
+                return toast.error("Geçersiz IPv4 formatı! (Örn: 192.168.1.5)");
+            }
+        }
+        else if (form.type === 'RANGE') {
+            if (!isValidIpv4(v1) || !isValidIpv4(v2)) {
+                return toast.error("Başlangıç veya Bitiş IP formatı hatalı!");
+            }
+            if (ipToLong(v1) > ipToLong(v2)) {
+                return toast.error("Bitiş IP adresi, Başlangıç IP adresinden küçük olamaz!");
+            }
+        }
+        else if (form.type === 'CIDR') {
+            const parts = v1.split('/');
+            if (parts.length !== 2 || !isValidIpv4(parts[0])) {
+                return toast.error("Geçersiz CIDR formatı! (Örn: 192.168.1.0/24)");
+            }
+            const prefix = parseInt(parts[1], 10);
+            if (isNaN(prefix) || prefix < 0 || prefix > 32) {
+                return toast.error("CIDR ağ maskesi /0 ile /32 arasında olmalıdır!");
+            }
+        }
+        // ------------------------------------------
+
+        let originalValue = v1;
+        if (form.type === 'RANGE') originalValue = `${v1}-${v2}`;
 
         try {
             await axios.post('http://localhost:8080/api/v1/ip-blocks', { type: form.type, originalValue })
@@ -51,6 +90,7 @@ export default function IpManagement({ appMode }) {
     return (
         <div className="card">
             <Toaster />
+            {/* Header ve Tablo Kısımları Aynı Bırakıldı... */}
             <div className="detail-header" style={{ marginBottom: '2rem' }}>
                 <div>
                     <h2><Globe size={28} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '10px', color: '#4f46e5' }} /> IP Address Management</h2>
@@ -102,16 +142,28 @@ export default function IpManagement({ appMode }) {
                             </div>
 
                             {form.type === 'STATIC' && (
-                                <div className="form-group"><label>IP Address</label><input required type="text" placeholder="192.168.1.5" value={form.val1} onChange={e=>setForm({...form, val1: e.target.value})}/></div>
+                                <div className="form-group">
+                                    <label>IP Address</label>
+                                    <input required type="text" placeholder="e.g. 192.168.1.5" value={form.val1} onChange={e=>setForm({...form, val1: e.target.value})}/>
+                                </div>
                             )}
                             {form.type === 'RANGE' && (
                                 <div style={{display:'flex', gap:'1rem'}}>
-                                    <div className="form-group" style={{flex:1}}><label>Start IP</label><input required type="text" placeholder="192.168.1.1" value={form.val1} onChange={e=>setForm({...form, val1: e.target.value})}/></div>
-                                    <div className="form-group" style={{flex:1}}><label>End IP</label><input required type="text" placeholder="192.168.1.255" value={form.val2} onChange={e=>setForm({...form, val2: e.target.value})}/></div>
+                                    <div className="form-group" style={{flex:1}}>
+                                        <label>Start IP</label>
+                                        <input required type="text" placeholder="e.g. 192.168.1.1" value={form.val1} onChange={e=>setForm({...form, val1: e.target.value})}/>
+                                    </div>
+                                    <div className="form-group" style={{flex:1}}>
+                                        <label>End IP</label>
+                                        <input required type="text" placeholder="e.g. 192.168.1.255" value={form.val2} onChange={e=>setForm({...form, val2: e.target.value})}/>
+                                    </div>
                                 </div>
                             )}
                             {form.type === 'CIDR' && (
-                                <div className="form-group"><label>CIDR Notation</label><input required type="text" placeholder="192.168.1.0/24" value={form.val1} onChange={e=>setForm({...form, val1: e.target.value})}/></div>
+                                <div className="form-group">
+                                    <label>CIDR Notation</label>
+                                    <input required type="text" placeholder="e.g. 192.168.1.0/24" value={form.val1} onChange={e=>setForm({...form, val1: e.target.value})}/>
+                                </div>
                             )}
 
                             <div className="modal-actions">
