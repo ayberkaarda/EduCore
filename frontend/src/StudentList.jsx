@@ -95,7 +95,6 @@ export default function StudentList({ appMode }) {
 
     const handleUpdateStudent = async (e) => {
         e.preventDefault()
-        console.log("Gönderilen Veri:", editStudent);
         try {
             await axios.put(`${API_BASE}/accounts/${editStudent.id}`, {
                 firstName: editStudent.firstName,
@@ -218,7 +217,7 @@ export default function StudentList({ appMode }) {
                                 <label>Assigned IP Address (Optional)</label>
 
                                 <select
-                                    style={{ marginBottom: '10px', width: '100%', padding: '0.6rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)' }}
+                                    style={{ marginBottom: '10px', width: '100%', padding: '0.6rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', outline: 'none' }}
                                     value={ipInputMode === 'manual' ? 'manual' : (editStudent.ipAddress || 'manual')}
                                     onChange={(e) => {
                                         if (e.target.value === 'manual') {
@@ -230,22 +229,29 @@ export default function StudentList({ appMode }) {
                                     }}
                                 >
                                     <option value="manual">-- Yeni IP Gir (Manuel) --</option>
-                                    {availableIps.map((ipObj) => {
-                                        const ipValue = ipObj.definition;
 
-                                        // IP statikse ve listedeki başka bir öğrenci tarafından kullanılıyorsa kilitliyoruz
-                                        const isUsedByAnother = ipObj.type === 'STATIC' && students.some(
+                                    {availableIps.map((ipObj) => {
+                                        // GÜÇLÜ YAKALAYICI: Backend'deki isim ne olursa olsun içinde '.' geçen metni bulur.
+                                        const ipValue = ipObj.ipAddress || ipObj.address || ipObj.cidr || ipObj.definition || ipObj.value ||
+                                            Object.values(ipObj).find(v => typeof v === 'string' && v.includes('.')) ||
+                                            "IP BULUNAMADI";
+
+                                        // Bu IP sistemde başka bir öğrenci tarafından kullanılıyor mu?
+                                        const isUsedByAnother = students.some(
                                             (s) => s.ipAddress === ipValue && s.id !== editStudent.id
                                         );
+
+                                        // Sadece STATIC olanları kilitliyoruz. RANGE/CIDR havuzları kilitlenmez.
+                                        const isLocked = ipObj.type === 'STATIC' && isUsedByAnother;
 
                                         return (
                                             <option
                                                 key={ipObj.id}
                                                 value={ipValue}
-                                                disabled={isUsedByAnother}
-                                                style={{ color: isUsedByAnother ? '#ef4444' : 'inherit' }}
+                                                disabled={isLocked}
+                                                style={{ color: isLocked ? '#ef4444' : (ipObj.type === 'STATIC' ? '#10b981' : 'inherit'), fontWeight: isLocked ? 'bold' : 'normal' }}
                                             >
-                                                {ipValue} ({ipObj.type === 'STATIC' ? 'Statik' : 'CIDR Bloğu'}) {isUsedByAnother ? ' - 🔴 (Dolu)' : ''}
+                                                {ipValue} ({ipObj.type === 'STATIC' ? 'Statik' : 'Havuz'}) {ipObj.type === 'STATIC' ? (isLocked ? ' - 🔴 (Dolu)' : ' - 🟢 (Boş)') : ''}
                                             </option>
                                         );
                                     })}
