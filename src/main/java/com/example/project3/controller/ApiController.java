@@ -26,7 +26,7 @@ public class ApiController {
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private IpBlockRepository ipBlockRepository;
     @Autowired private JobLogRepository jobLogRepository;
-    
+
 
     // --- 1. DERS EKLEME (GÜVENLİK KALKANLI) ---
     @PostMapping("/enroll")

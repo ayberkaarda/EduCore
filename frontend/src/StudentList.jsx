@@ -230,11 +230,25 @@ export default function StudentList({ appMode }) {
                                     }}
                                 >
                                     <option value="manual">-- Yeni IP Gir (Manuel) --</option>
-                                    {availableIps.map((ipObj) => (
-                                        <option key={ipObj.id} value={ipObj.definition}>
-                                            {ipObj.definition} ({ipObj.type === 'STATIC' ? 'Statik' : 'CIDR Bloğu'})
-                                        </option>
-                                    ))}
+                                    {availableIps.map((ipObj) => {
+                                        const ipValue = ipObj.definition;
+
+                                        // IP statikse ve listedeki başka bir öğrenci tarafından kullanılıyorsa kilitliyoruz
+                                        const isUsedByAnother = ipObj.type === 'STATIC' && students.some(
+                                            (s) => s.ipAddress === ipValue && s.id !== editStudent.id
+                                        );
+
+                                        return (
+                                            <option
+                                                key={ipObj.id}
+                                                value={ipValue}
+                                                disabled={isUsedByAnother}
+                                                style={{ color: isUsedByAnother ? '#ef4444' : 'inherit' }}
+                                            >
+                                                {ipValue} ({ipObj.type === 'STATIC' ? 'Statik' : 'CIDR Bloğu'}) {isUsedByAnother ? ' - 🔴 (Dolu)' : ''}
+                                            </option>
+                                        );
+                                    })}
                                 </select>
 
                                 {ipInputMode === 'manual' && (

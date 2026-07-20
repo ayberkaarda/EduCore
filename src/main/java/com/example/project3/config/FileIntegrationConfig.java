@@ -1,5 +1,7 @@
 package com.example.project3.config;
 
+import com.example.project3.service.CsvJobService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.integration.annotation.InboundChannelAdapter;
@@ -9,6 +11,8 @@ import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.config.EnableIntegration;
 import org.springframework.integration.core.MessageSource;
 import org.springframework.integration.file.FileReadingMessageSource;
+import org.springframework.integration.file.filters.AcceptOnceFileListFilter;
+import org.springframework.integration.file.filters.CompositeFileListFilter;
 import org.springframework.integration.file.filters.SimplePatternFileListFilter;
 import org.springframework.messaging.MessageChannel;
 
@@ -17,6 +21,9 @@ import java.io.File;
 @Configuration
 @EnableIntegration
 public class FileIntegrationConfig {
+
+    @Autowired
+    private CsvJobService csvJobService;
 
     // 1. Dosyaların akacağı kanal
     @Bean
@@ -29,19 +36,38 @@ public class FileIntegrationConfig {
     @InboundChannelAdapter(value = "fileInputChannel", poller = @Poller(fixedDelay = "5000"))
     public MessageSource<File> fileReadingMessageSource() {
         FileReadingMessageSource source = new FileReadingMessageSource();
-        source.setDirectory(new File("csv_uploads")); // Dinlenecek klasör
-        source.setFilter(new SimplePatternFileListFilter("*.csv")); // Sadece CSV'leri al
+        source.setDirectory(new File("csv_uploads"));
+
+        // KALKAN: Sadece CSV'leri al ve "aynı dosyayı yalnızca 1 kez" oku!
+        CompositeFileListFilter<File> filter = new CompositeFileListFilter<>();
+        filter.addFilter(new SimplePatternFileListFilter("*.csv"));
+        filter.addFilter(new AcceptOnceFileListFilter<>());
+        source.setFilter(filter);
+
         return source;
     }
 
-    // 3. Dosya bulununca tetiklenecek metod (Yönlendirme Noktası)
+    // 3. Dosyayı yakalayıp YÖNLENDİREN (Routing) metod
+    // 3. Dosyayı yakalayıp YÖNLENDİREN (Routing) metod
     @ServiceActivator(inputChannel = "fileInputChannel")
     public void processFile(File file) {
-        System.out.println("Spring Integration Yeni Dosya Yakaladı: " + file.getName());
+        System.out.println("Spring Integration Yeni Dosya Yakaladı ve Yönlendiriyor: " + file.getName());
 
-        // TODO: Burada var olan CsvJobService'ini çağırıp Job'u başlatabilirsin.
-        // Örnek: csvJobService.runJob(file.getAbsolutePath());
+        String fileName = file.getName().toLowerCase();
 
-        // İşlem bittikten sonra dosyayı .done olarak isimlendirmek veya taşımak iyi bir pratiktir.
+        // Spring Integration Yönlendirme (Routing) Mantığı
+        if (fileName.contains("ogrenci") || fileName.contains("student")) {
+
+            System.out.println("-> Yönlendirme: Öğrenci (Student) Batch Job'u tetikleniyor...");
+            csvJobService.runStudentJob(file); // <-- DİKKAT: İçine 'file' eklendi
+
+        } else if (fileName.contains("course") || fileName.contains("ders") || fileName.contains("courses")) {
+
+            System.out.println("-> Yönlendirme: Ders (Course) Batch Job'u tetikleniyor...");
+            csvJobService.runCourseJob(file); // <-- DİKKAT: İçine 'file' eklendi
+
+        } else {
+            System.out.println("-> Uyarı: Bu dosya ismiyle eşleşen bir yönlendirme kuralı bulunamadı.");
+        }
     }
 }
