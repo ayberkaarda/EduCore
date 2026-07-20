@@ -26,6 +26,7 @@ public class ApiController {
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private IpBlockRepository ipBlockRepository;
     @Autowired private JobLogRepository jobLogRepository;
+    
 
     // --- 1. DERS EKLEME (GÜVENLİK KALKANLI) ---
     @PostMapping("/enroll")
@@ -197,6 +198,11 @@ public class ApiController {
         return courseRepository.findAll().stream()
                 .map(c -> new CourseDTO(c.getId(), c.getName(), c.getTerm())) // YENİ
                 .collect(Collectors.toList());
+    }
+    @GetMapping("/ips")
+    public ResponseEntity<?> getAllIps() {
+        // Sistemdeki tüm IP bloklarını / tanımlarını frontend'e gönder
+        return ResponseEntity.ok(ipBlockRepository.findAll());
     }
 
     // GetEnrolledCourses metodunu güncelle:

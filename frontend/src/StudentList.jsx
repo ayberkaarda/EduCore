@@ -13,7 +13,8 @@ export default function StudentList({ appMode }) {
     const [students, setStudents] = useState([])
     const [searchTerm, setSearchTerm] = useState('')
     const [isLoading, setIsLoading] = useState(true)
-
+    const [availableIps, setAvailableIps] = useState([]);
+    const [ipInputMode, setIpInputMode] = useState('manual');
     const [page, setPage] = useState(0)
     const [totalPages, setTotalPages] = useState(1)
     const pageSize = 8
@@ -29,6 +30,24 @@ export default function StudentList({ appMode }) {
 
     useEffect(() => { setPage(0) }, [debouncedSearchTerm])
     useEffect(() => { fetchStudents(debouncedSearchTerm, page) }, [debouncedSearchTerm, page])
+
+    // Edit modalı açıldığında IP havuzunu Backend'den çek
+    useEffect(() => {
+        if (isEditModalOpen) {
+            const fetchAvailableIps = async () => {
+                try {
+                    const response = await axios.get(`${API_BASE}/ips`);
+                    setAvailableIps(response.data);
+                } catch (error) {
+                    console.error("IP listesi çekilemedi:", error);
+                    toast.error("IP listesi yüklenemedi.");
+                }
+            };
+
+            fetchAvailableIps();
+            setIpInputMode('manual'); // Her modal açılışında varsayılan olarak manual veya mevcut IP gelsin
+        }
+    }, [isEditModalOpen]);
 
     const fetchStudents = async (search, currentPage) => {
         setIsLoading(true)
@@ -64,7 +83,6 @@ export default function StudentList({ appMode }) {
     }
 
     const openEditModal = (student) => {
-        // YENİ: Edit Modal'ı açılırken öğrencinin mevcut IP adresini state'e yüklüyoruz
         setEditStudent({
             id: student.id,
             firstName: student.firstName,
@@ -77,9 +95,8 @@ export default function StudentList({ appMode }) {
 
     const handleUpdateStudent = async (e) => {
         e.preventDefault()
-        console.log("Gönderilen Veri:", editStudent); // Konsolda IP'nin olup olmadığını kontrol et
+        console.log("Gönderilen Veri:", editStudent);
         try {
-            // YENİ: Güncelleme esnasında ipAddress verisi Backend'e gönderiliyor
             await axios.put(`${API_BASE}/accounts/${editStudent.id}`, {
                 firstName: editStudent.firstName,
                 lastName: editStudent.lastName,
@@ -90,7 +107,6 @@ export default function StudentList({ appMode }) {
             setIsEditModalOpen(false)
             fetchStudents(debouncedSearchTerm, page)
         } catch (error) {
-            // YENİ: Backend'den dönen IP Validasyon hatalarını (Örn: Havuzda yok, başkasında var) ekranda göster
             toast.error(error.response?.data?.error || 'Failed to update student.')
         }
     }
@@ -126,7 +142,6 @@ export default function StudentList({ appMode }) {
                                     <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
                                         <th style={{ padding: '1rem', color: '#6b7280' }}>ID</th>
                                         <th style={{ padding: '1rem', color: '#6b7280' }}>Full Name</th>
-                                        {/* YENİ: Tablo başlığı eklendi */}
                                         <th style={{ padding: '1rem', color: '#6b7280' }}>IP Address</th>
                                         <th style={{ padding: '1rem', textAlign: 'right', color: '#6b7280' }}>Actions</th>
                                     </tr>
@@ -141,7 +156,6 @@ export default function StudentList({ appMode }) {
                                                     {student.firstName} {student.lastName}
                                                 </div>
                                             </td>
-                                            {/* YENİ: IP Adresi gösterimi eklendi */}
                                             <td style={{ padding: '1rem' }}>
                                                 {student.ipAddress ? (
                                                     <span className="badge" style={{ backgroundColor: '#eff6ff', color: '#1e40af', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Network size={14} /> {student.ipAddress}</span>
@@ -199,18 +213,39 @@ export default function StudentList({ appMode }) {
                             <div className="form-group"><label>First Name</label><input required type="text" value={editStudent.firstName} onChange={e => setEditStudent({...editStudent, firstName: e.target.value})} /></div>
                             <div className="form-group"><label>Last Name</label><input required type="text" value={editStudent.lastName} onChange={e => setEditStudent({...editStudent, lastName: e.target.value})} /></div>
                             <div className="form-group"><label>Student ID</label><input required type="text" value={editStudent.studentNumber} onChange={e => setEditStudent({...editStudent, studentNumber: e.target.value})} /></div>
-                            {/* YENİ: IP Atama Inputu Eklendi */}
+
                             <div className="form-group">
-                                <label>Assigned IP Address <span className="text-gray" style={{fontSize: '0.8rem'}}>(Optional)</span></label>
-                                <input
-                                    type="text"
-                                    placeholder="e.g. 192.168.1.15"
-                                    value={editStudent.ipAddress || ""}
-                                    onChange={e => setEditStudent({...editStudent, ipAddress: e.target.value})}
-                                    pattern="^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
-                                    title="Geçerli bir IPv4 adresi giriniz (Örn: 192.168.1.5)"
-                                    className="form-control"
-                                />
+                                <label>Assigned IP Address (Optional)</label>
+
+                                <select
+                                    style={{ marginBottom: '10px', width: '100%', padding: '0.6rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)' }}
+                                    value={ipInputMode === 'manual' ? 'manual' : (editStudent.ipAddress || 'manual')}
+                                    onChange={(e) => {
+                                        if (e.target.value === 'manual') {
+                                            setIpInputMode('manual');
+                                        } else {
+                                            setIpInputMode('select');
+                                            setEditStudent({ ...editStudent, ipAddress: e.target.value });
+                                        }
+                                    }}
+                                >
+                                    <option value="manual">-- Yeni IP Gir (Manuel) --</option>
+                                    {availableIps.map((ipObj) => (
+                                        <option key={ipObj.id} value={ipObj.definition}>
+                                            {ipObj.definition} ({ipObj.type === 'STATIC' ? 'Statik' : 'CIDR Bloğu'})
+                                        </option>
+                                    ))}
+                                </select>
+
+                                {ipInputMode === 'manual' && (
+                                    <input
+                                        type="text"
+                                        value={editStudent.ipAddress || ''}
+                                        onChange={(e) => setEditStudent({ ...editStudent, ipAddress: e.target.value })}
+                                        placeholder="Örn: 192.168.1.5"
+                                        style={{ width: '100%', padding: '0.6rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', outline: 'none', boxSizing: 'border-box' }}
+                                    />
+                                )}
                             </div>
                             <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary" style={{backgroundColor: '#f59e0b'}}>Update</button></div>
                         </form>
