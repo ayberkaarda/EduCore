@@ -220,11 +220,33 @@ export default function StudentList({ appMode }) {
                                     style={{ marginBottom: '10px', width: '100%', padding: '0.6rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', outline: 'none' }}
                                     value={ipInputMode === 'manual' ? 'manual' : (editStudent.ipAddress || 'manual')}
                                     onChange={(e) => {
-                                        if (e.target.value === 'manual') {
+                                        const selectedValue = e.target.value;
+
+                                        if (selectedValue === 'manual') {
                                             setIpInputMode('manual');
+                                            setEditStudent({ ...editStudent, ipAddress: '' });
                                         } else {
-                                            setIpInputMode('select');
-                                            setEditStudent({ ...editStudent, ipAddress: e.target.value });
+                                            // Seçilen IP objesini mevcut listeden bul
+                                            const selectedIpObj = availableIps.find(ipObj => {
+                                                const val = ipObj.ipAddress || ipObj.address || ipObj.cidr || ipObj.definition || ipObj.value;
+                                                return val === selectedValue;
+                                            });
+
+                                            if (selectedIpObj && selectedIpObj.type === 'STATIC') {
+                                                // Sadece STATİK ise inputu gizle ve doğrudan IP'yi ata
+                                                setIpInputMode('select');
+                                                setEditStudent({ ...editStudent, ipAddress: selectedValue });
+                                            } else {
+                                                // RANGE veya CIDR (Havuz) seçildiyse manuel girişi açık tut
+                                                setIpInputMode('manual');
+
+                                                // Kullanıcıya kolaylık olması için havuzun başını input'a yazdırabilirsiniz (İsteğe bağlı)
+                                                const prefix = selectedValue.split(/[-/]/)[0]; // 192.168.1.0/24 -> 192.168.1.0
+                                                setEditStudent({ ...editStudent, ipAddress: prefix });
+
+                                                // Kullanıcıyı bilgilendir
+                                                toast("Havuz seçildi. Lütfen bu aralıktan tekil bir IP adresi girin.", { icon: 'ℹ️' });
+                                            }
                                         }
                                     }}
                                 >
