@@ -3,7 +3,7 @@ import axios from 'axios'
 import toast, { Toaster } from 'react-hot-toast'
 import { Book, Plus, Loader2, Calendar, Edit, Trash2, User } from 'lucide-react'
 
-const API_BASE = 'http://localhost:8080/api/v1'
+const API_BASE = 'http://localhost:8081/api/v1'
 
 export default function CourseManagement({ appMode }) {
     const isAdmin = appMode.role === 'ADMIN'

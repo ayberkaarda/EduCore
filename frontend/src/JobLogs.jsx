@@ -13,7 +13,7 @@ export default function JobLogs({ appMode }) {
 
     const fetchLogs = () => {
         setIsLoading(true)
-        axios.get('http://localhost:8080/api/v1/logs')
+        axios.get('http://localhost:8081/api/v1/logs')
             .then(res => {
                 setLogs(res.data)
                 setSelectedIds([])

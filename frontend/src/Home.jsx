@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Users, BookOpen, Clock, Loader2 } from 'lucide-react'
 
-const API_BASE = 'http://localhost:8080/api/v1'
+const API_BASE = 'http://localhost:8081/api/v1'
 
 export default function Home({ authData }) {
     const [stats, setStats] = useState({ totalStudents: 0, totalCourses: 0, recentStudents: [] })
