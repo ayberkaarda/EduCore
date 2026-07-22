@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  postgres-db:
+    image: postgres:15
+    container_name: educore-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: educore_user
+      POSTGRES_PASSWORD: educore_password
+      POSTGRES_DB: educore_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - educore-network
+
+  config-server:
+    build:
+      context: ./config-server
+      dockerfile: Dockerfile
+    container_name: educore-config-server
+    ports:
+      - "8888:8888"
+    volumes:
+      # Localdeki config-repo klasörünüzü konteynere bağlıyoruz
+      - ./config-repo:/config-repo
+    networks:
+      - educore-network
+
+  educore-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: educore-app
+    ports:
+      - "8081:8080"
+    environment:
+      - CONFIG_SERVER_URL=http://config-server:8888
+    depends_on:
+      - postgres-db
+      - config-server
+    networks:
+      - educore-network
+
+networks:
+  educore-network:
+    driver: bridge
+
+volumes:
+  pgdata:
