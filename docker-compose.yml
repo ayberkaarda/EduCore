@@ -49,6 +49,10 @@ services:
         condition: service_healthy
       config-server:
         condition: service_started
+    # CSV Klasörünü hem uygulamanın çalıştığı dizine hem de kök dizine bağlıyoruz
+    volumes:
+      - ./csv_uploads:/app/csv_uploads
+      - ./csv_uploads:/csv_uploads
     networks:
       - educore-network
 

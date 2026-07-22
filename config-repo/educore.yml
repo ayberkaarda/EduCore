@@ -1,10 +1,15 @@
-# config-repo/educore.yml
 spring:
   datasource:
     url: jdbc:postgresql://postgres-db:5432/educore_db
     username: educore_user
     password: educore_password
     driver-class-name: org.postgresql.Driver
+
+  # batch ayarı datasource ile aynı hizada (içeride değil) olmalı
+  batch:
+    jdbc:
+      initialize-schema: always
+
   jpa:
     hibernate:
       ddl-auto: update
