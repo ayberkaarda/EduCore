@@ -20,17 +20,14 @@ public class CsvJobService {
     @Autowired private JobLogRepository jobLogRepository;
     @Autowired private JobTracker jobTracker;
 
-    // YENİ: Spring Integration bu metodu çağıracak
     public void runStudentJob(File file) {
         processBatchJob(file, importStudentJob, "STUDENTS");
     }
 
-    // YENİ: Spring Integration bu metodu çağıracak
     public void runCourseJob(File file) {
         processBatchJob(file, importCourseJob, "COURSES");
     }
 
-    // ORTAK İŞLEYİCİ: Dosya okuma ve loglama mantığı burada tekilleştirildi
     private void processBatchJob(File file, Job jobToRun, String entityType) {
         try {
             JobParameters jobParameters = new JobParametersBuilder()

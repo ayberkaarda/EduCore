@@ -1,0 +1,19 @@
+# config-repo/educore.yml
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres-db:5432/educore_db
+    username: educore_user
+    password: educore_password
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+# Uygulamanıza özel diğer tüm ayarları (portlar, JWT secret key vb.) buraya ekleyebilirsiniz.
+educore:
+  custom:
+    message: "Bu ayar yerel YAML dosyasından okunuyor!"
