@@ -3,7 +3,7 @@ import axios from 'axios'
 import toast, { Toaster } from 'react-hot-toast'
 import { CheckCircle2, PlusCircle, Book, Calendar, UserCheck } from 'lucide-react'
 
-const API_BASE = 'http://localhost:8080/api/v1'
+const API_BASE = 'http://localhost:8081/api/v1'
 
 export default function StudentProfile({ currentUser }) {
     const [allCourses, setAllCourses] = useState([])

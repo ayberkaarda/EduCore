@@ -24,7 +24,7 @@ export default function IpManagement({ appMode }) {
     const fetchData = async () => {
         setIsLoading(true)
         try {
-            const res = await axios.get('http://localhost:8080/api/v1/ip-blocks')
+            const res = await axios.get('http://localhost:8081/api/v1/ip-blocks')
             setBlocks(res.data)
         } catch (e) { toast.error("Failed to load IP Blocks.") }
         finally { setIsLoading(false) }
@@ -66,7 +66,7 @@ export default function IpManagement({ appMode }) {
         if (form.type === 'RANGE') originalValue = `${v1}-${v2}`;
 
         try {
-            await axios.post('http://localhost:8080/api/v1/ip-blocks', { type: form.type, originalValue })
+            await axios.post('http://localhost:8081/api/v1/ip-blocks', { type: form.type, originalValue })
             toast.success("IP Block defined successfully!")
             setIsModalOpen(false)
             setForm({ type: 'STATIC', val1: '', val2: '' })
@@ -79,7 +79,7 @@ export default function IpManagement({ appMode }) {
     const handleDelete = async (id) => {
         if (!window.confirm("Delete this IP definition?")) return;
         try {
-            await axios.delete(`http://localhost:8080/api/v1/ip-blocks/${id}`)
+            await axios.delete(`http://localhost:8081/api/v1/ip-blocks/${id}`)
             toast.success("Deleted successfully.")
             fetchData()
         } catch (e) { toast.error("Delete failed.") }

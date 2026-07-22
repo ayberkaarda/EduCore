@@ -5,7 +5,7 @@ import { Search, ChevronRight, User, Loader2, Plus, Edit, Trash2, Network } from
 import toast, { Toaster } from 'react-hot-toast'
 import { useDebounce } from './hooks/useDebounce'
 
-const API_BASE = 'http://localhost:8080/api/v1'
+const API_BASE = 'http://localhost:8081/api/v1'
 
 export default function StudentList({ appMode }) {
     const isAdmin = appMode.role === 'ADMIN'
