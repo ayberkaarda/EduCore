@@ -15,6 +15,12 @@ services:
       - pgdata:/var/lib/postgresql/data
     networks:
       - educore-network
+    # Veritabanının hazır olup olmadığını kontrol ediyoruz
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U educore_user -d educore_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   config-server:
     build:
@@ -24,7 +30,6 @@ services:
     ports:
       - "8888:8888"
     volumes:
-      # Localdeki config-repo klasörünüzü konteynere bağlıyoruz
       - ./config-repo:/config-repo
     networks:
       - educore-network
@@ -39,8 +44,23 @@ services:
     environment:
       - CONFIG_SERVER_URL=http://config-server:8888
     depends_on:
-      - postgres-db
-      - config-server
+      # Backend'i başlatmadan önce veritabanının "sağlıklı" olmasını bekle
+      postgres-db:
+        condition: service_healthy
+      config-server:
+        condition: service_started
+    networks:
+      - educore-network
+
+  educore-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: educore-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - educore-backend
     networks:
       - educore-network
 
