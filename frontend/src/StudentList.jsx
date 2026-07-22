@@ -240,11 +240,10 @@ export default function StudentList({ appMode }) {
                                                 // RANGE veya CIDR (Havuz) seçildiyse manuel girişi açık tut
                                                 setIpInputMode('manual');
 
-                                                // Kullanıcıya kolaylık olması için havuzun başını input'a yazdırabilirsiniz (İsteğe bağlı)
+                                                // Kullanıcıya kolaylık olması için havuzun başını input'a yazdırıyoruz
                                                 const prefix = selectedValue.split(/[-/]/)[0]; // 192.168.1.0/24 -> 192.168.1.0
                                                 setEditStudent({ ...editStudent, ipAddress: prefix });
 
-                                                // Kullanıcıyı bilgilendir
                                                 toast("Havuz seçildi. Lütfen bu aralıktan tekil bir IP adresi girin.", { icon: 'ℹ️' });
                                             }
                                         }
