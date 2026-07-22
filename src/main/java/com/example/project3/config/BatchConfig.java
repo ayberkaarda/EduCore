@@ -91,7 +91,7 @@ public class BatchConfig {
                 .writer(studentWriter)
                 .faultTolerant()
                 .skip(Exception.class)
-                .skipLimit(100)
+                .skipLimit(150)
                 .build();
     }
 

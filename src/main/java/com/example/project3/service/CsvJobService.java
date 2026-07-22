@@ -14,11 +14,16 @@ import java.time.LocalDateTime;
 @Service
 public class CsvJobService {
 
-    @Autowired private JobLauncher jobLauncher;
-    @Autowired private Job importStudentJob;
-    @Autowired private Job importCourseJob;
-    @Autowired private JobLogRepository jobLogRepository;
-    @Autowired private JobTracker jobTracker;
+    @Autowired
+    private JobLauncher jobLauncher;
+    @Autowired
+    private Job importStudentJob;
+    @Autowired
+    private Job importCourseJob;
+    @Autowired
+    private JobLogRepository jobLogRepository;
+    @Autowired
+    private JobTracker jobTracker;
 
     public void runStudentJob(File file) {
         processBatchJob(file, importStudentJob, "STUDENTS");
@@ -45,7 +50,9 @@ public class CsvJobService {
                 filterAndSkipCount += stepExecution.getFilterCount() + stepExecution.getSkipCount();
             }
 
-            boolean isFailed = execution.getStatus() == BatchStatus.FAILED;
+            // DEĞİŞİKLİK BURADA: Job çöktüyse VEYA atlanan/hatalı satır varsa FAILED say.
+            // Eğer hiçbir satır yazılamadıysa (writeCount == 0) kuralını da ekleyebilirsin.
+            boolean isFailed = execution.getStatus() == BatchStatus.FAILED || filterAndSkipCount > 0;
 
             String detailedLogsJson = jobTracker.getLogsAsJson(execution.getJobId());
             jobTracker.clear(execution.getJobId());
