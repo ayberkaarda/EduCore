@@ -31,7 +31,7 @@ public class FileIntegrationConfig {
         return new DirectChannel();
     }
 
-    // 2. csv_uploads klasörünü dinleyen adaptör (5 saniyede bir kontrol eder)
+    // 2. csv_uploads klasörünü dinleyen adaptör
     @Bean
     @InboundChannelAdapter(value = "fileInputChannel", poller = @Poller(fixedDelay = "5000"))
     public MessageSource<File> fileReadingMessageSource() {
@@ -47,8 +47,6 @@ public class FileIntegrationConfig {
         return source;
     }
 
-    // 3. Dosyayı yakalayıp YÖNLENDİREN (Routing) metod
-    // 3. Dosyayı yakalayıp YÖNLENDİREN (Routing) metod
     @ServiceActivator(inputChannel = "fileInputChannel")
     public void processFile(File file) {
         System.out.println("Spring Integration Yeni Dosya Yakaladı ve Yönlendiriyor: " + file.getName());
