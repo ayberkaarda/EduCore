@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "http://localhost:3000")
 @RestController
 @RequestMapping("/api/v1")
 public class ApiController {
@@ -169,7 +169,7 @@ public class ApiController {
     @PostMapping("/courses")
     public ResponseEntity<?> createCourse(@RequestBody Course course) {
         Course savedCourse = courseRepository.save(course);
-        return ResponseEntity.ok(new CourseDTO(savedCourse.getId(), savedCourse.getName(), savedCourse.getTerm()));
+        return ResponseEntity.ok(new CourseDTO(course.getId(), course.getName(), course.getTerm(), course.getInstructor()));
     }
 
     @DeleteMapping("/courses/{id}")
@@ -196,7 +196,7 @@ public class ApiController {
     @GetMapping("/courses")
     public List<CourseDTO> getAllCourses() {
         return courseRepository.findAll().stream()
-                .map(c -> new CourseDTO(c.getId(), c.getName(), c.getTerm())) // YENİ
+                .map(c -> new CourseDTO(c.getId(), c.getName(), c.getTerm(), c.getInstructor())) // YENİ
                 .collect(Collectors.toList());
     }
     @GetMapping("/ips")
@@ -209,7 +209,7 @@ public class ApiController {
     @GetMapping("/accounts/{accountId}/courses")
     public List<CourseDTO> getEnrolledCourses(@PathVariable Long accountId) {
         return enrollmentRepository.findByAccountId(accountId).stream()
-                .map(e -> new CourseDTO(e.getCourse().getId(), e.getCourse().getName(), e.getCourse().getTerm())) // YENİ
+                .map(e -> new CourseDTO(e.getCourse().getId(), e.getCourse().getName(), e.getCourse().getTerm(), e.getCourse().getInstructor())) // YENİ
                 .collect(Collectors.toList());
     }
 
