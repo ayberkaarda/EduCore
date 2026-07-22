@@ -70,4 +70,3 @@ networks:
 
 volumes:
   pgdata:
-    - ./csv_uploads:/app/csv_uploads
