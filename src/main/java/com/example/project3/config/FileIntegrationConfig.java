@@ -1,6 +1,7 @@
 package com.example.project3.config;
 
 import com.example.project3.service.CsvJobService;
+import com.example.project3.service.StudentMultiThreadService; // 1. YENİ SERVİS EKLENDİ
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +25,9 @@ public class FileIntegrationConfig {
 
     @Autowired
     private CsvJobService csvJobService;
+
+    @Autowired
+    private StudentMultiThreadService studentMultiThreadService; // 2. YENİ SERVİS INJECT EDİLDİ
 
     // 1. Dosyaların akacağı kanal
     @Bean
@@ -56,13 +60,19 @@ public class FileIntegrationConfig {
         // Spring Integration Yönlendirme (Routing) Mantığı
         if (fileName.contains("ogrenci") || fileName.contains("student")) {
 
-            System.out.println("-> Yönlendirme: Öğrenci (Student) Batch Job'u tetikleniyor...");
-            csvJobService.runStudentJob(file); // <-- DİKKAT: İçine 'file' eklendi
+            System.out.println("-> Yönlendirme: Multi-Thread Öğrenci Kayıt İşlemi Tetikleniyor...");
+
+            // 3. DİKKAT: Eski Batch Job yerine yeni Multi-Thread servisimizi çağırıyoruz
+            studentMultiThreadService.processFileWithThreads(file);
+
+            // İşlem başarıyla bittiğinde dosya adını .done olarak değiştirebiliriz
+            File doneFile = new File(file.getAbsolutePath() + ".done");
+            file.renameTo(doneFile);
 
         } else if (fileName.contains("course") || fileName.contains("ders") || fileName.contains("courses")) {
 
             System.out.println("-> Yönlendirme: Ders (Course) Batch Job'u tetikleniyor...");
-            csvJobService.runCourseJob(file); // <-- DİKKAT: İçine 'file' eklendi
+            csvJobService.runCourseJob(file);
 
         } else {
             System.out.println("-> Uyarı: Bu dosya ismiyle eşleşen bir yönlendirme kuralı bulunamadı.");
