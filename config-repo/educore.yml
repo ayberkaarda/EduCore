@@ -5,7 +5,6 @@ spring:
     password: educore_password
     driver-class-name: org.postgresql.Driver
 
-  # batch ayarı datasource ile aynı hizada (içeride değil) olmalı
   batch:
     jdbc:
       initialize-schema: always
@@ -18,7 +17,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-# Uygulamanıza özel diğer tüm ayarları (portlar, JWT secret key vb.) buraya ekleyebilirsiniz.
 educore:
   custom:
     message: "Bu ayar yerel YAML dosyasından okunuyor!"
