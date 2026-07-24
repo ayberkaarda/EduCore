@@ -22,52 +22,55 @@ public class StudentMultiThreadService {
     private final AccountRepository accountRepository;
     private final PasswordEncoder passwordEncoder;
 
+    // TODO: Arayüzdeki JobLog kayıtlarını oluşturmak için kendi log servisini buraya inject edebilirsin.
+    // private final JobTracker jobTracker;
+
     public StudentMultiThreadService(AccountRepository accountRepository, PasswordEncoder passwordEncoder) {
         this.accountRepository = accountRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
-    public void processFileWithThreads(File file) {
+    public boolean processFileWithThreads(File file) {
         List<String> lines = new ArrayList<>();
+        boolean isSuccess = true;
 
-        // 1. Dosyayı Oku ve Satırları Listeye Al
+        // 1. Dosyayı Oku
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line;
             boolean isFirstLine = true;
             while ((line = br.readLine()) != null) {
                 if (isFirstLine) {
                     isFirstLine = false;
-                    continue; // Başlık satırını atla
+                    continue; // CSV Başlığını atla
                 }
-                lines.add(line);
+                if (!line.trim().isEmpty()) {
+                    lines.add(line);
+                }
             }
         } catch (Exception e) {
             System.err.println("Dosya okuma hatası: " + e.getMessage());
-            return;
+            return false;
         }
 
-        // 2. Maksimum 5 eşzamanlı işlem yapacak Thread Havuzu
+        // 2. Thread Havuzu (Aynı anda 5 işlem)
         ExecutorService executor = Executors.newFixedThreadPool(5);
 
-        // 3. Verileri 5'erli gruplar (Chunk) halinde işle
+        // 3. Verileri 5'erli Gruplara Böl
         for (int i = 0; i < lines.size(); i += 5) {
             int end = Math.min(i + 5, lines.size());
             List<String> chunk = lines.subList(i, end);
 
-            // Bu gruba özel bariyer (Grupta kaç kişi varsa o kadar bekleyecek)
+            // Bu gruptaki kişi sayısı kadar bekleyecek bariyer
             CyclicBarrier barrier = new CyclicBarrier(chunk.size(), () -> {
-                System.out.println("✅ [" + chunk.size() + " Kişilik Grup] Thread'ler birbiriyle iletişimi tamamladı ve grup veritabanına işlendi!\n");
+                System.out.println("✅ [" + chunk.size() + " Kişilik Grup] Thread'ler birbiriyle iletişimi tamamladı!");
             });
 
-            // Gruptaki her bir öğrenci için thread'leri ateşle
             for (String line : chunk) {
                 executor.submit(() -> {
                     try {
                         saveStudentToDatabase(line);
-
-                        // İşini bitiren thread, gruptaki diğer arkadaşlarının işini bitirmesini bekliyor
+                        // İşini bitiren thread, gruptaki diğerlerini bekler
                         barrier.await();
-
                     } catch (InterruptedException | BrokenBarrierException e) {
                         Thread.currentThread().interrupt();
                         System.err.println("Thread senkronizasyon hatası: " + e.getMessage());
@@ -76,28 +79,38 @@ public class StudentMultiThreadService {
             }
         }
 
-        // Tüm görevler havuza gönderildikten sonra havuzu kapat (yeni işlem almaz, mevcutları bitirir)
         executor.shutdown();
+
+
+        return isSuccess;
     }
 
     private void saveStudentToDatabase(String csvLine) {
         String threadName = Thread.currentThread().getName();
         String[] data = csvLine.split(",");
 
-        // CSV Formatı varsayımı: first_name, last_name, student_number vs.
         if (data.length >= 3) {
+            String studentNum = data[2].trim();
+            String firstName = data[0].trim();
+            String lastName = data[1].trim();
+
+
             Account student = new Account();
-            student.setFirstName(data[0].trim());
-            student.setLastName(data[1].trim());
-            student.setStudentNumber(data[2].trim());
-            student.setUsername(data[2].trim());
-            student.setPassword(passwordEncoder.encode("123456")); // Varsayılan şifre
+            student.setFirstName(firstName);
+            student.setLastName(lastName);
+            student.setStudentNumber(studentNum);
+            student.setUsername(studentNum);
+            student.setPassword(passwordEncoder.encode("123456"));
             student.setRole(Role.USER);
 
-            // Gerçek veritabanı kaydı
-            accountRepository.save(student);
-
-            System.out.println("🚀 [" + threadName + "] Öğrenciyi kaydetti ve bariyere ulaştı: " + student.getFirstName());
+            try {
+                accountRepository.save(student);
+                System.out.println("✅ " + firstName + " " + lastName + " - Successfully added. [" + threadName + "]");
+                // jobTracker.logDetail(..., "Successfully added.");
+            } catch (Exception e) {
+                System.out.println("❌ " + firstName + " - Failed: " + e.getMessage());
+                // jobTracker.logDetail(..., "Failed: " + e.getMessage());
+            }
         }
     }
 }

@@ -55,7 +55,7 @@ export default function JobLogs({ appMode }) {
         if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} log(s)?`)) return;
 
         try {
-            await axios.delete(`http://localhost:8080/api/v1/logs?ids=${selectedIds.join(',')}`);
+            await axios.delete(`http://localhost:8081/api/v1/logs?ids=${selectedIds.join(',')}`);
             toast.success('Logs successfully deleted!');
             fetchLogs();
         } catch (error) {
