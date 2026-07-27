@@ -15,6 +15,7 @@ import java.io.FileReader;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -23,7 +24,8 @@ public class StudentMultiThreadService {
 
     private final AccountRepository accountRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JobLogRepository jobLogRepository; // 1. LOG REPOSITORY EKLENDİ
+    private final JobLogRepository jobLogRepository;
+    private final Random random = new Random(); // Simülasyon için rastgele süre üreteci
 
     public StudentMultiThreadService(AccountRepository accountRepository, PasswordEncoder passwordEncoder, JobLogRepository jobLogRepository) {
         this.accountRepository = accountRepository;
@@ -32,55 +34,48 @@ public class StudentMultiThreadService {
     }
 
     public boolean processFileWithThreads(File file) {
-        List<String> lines = new ArrayList<>();
-
-        // 2. THREAD-SAFE LOG DEĞİŞKENLERİ
-        // Birden fazla thread aynı anda sayı artıracağı için AtomicInteger kullanıyoruz.
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failCount = new AtomicInteger(0);
-        List<String> detailedLogs = new CopyOnWriteArrayList<>(); // Thread-safe liste
+        List<String> detailedLogs = new CopyOnWriteArrayList<>();
+
+        ExecutorService executor = Executors.newFixedThreadPool(5);
+        System.out.println("\n=======================================================");
+        System.out.println("🚀 MULTI-THREAD ÖĞRENCİ KAYIT İŞLEMİ BAŞLADI!");
+        System.out.println("=======================================================\n");
 
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line;
             boolean isFirstLine = true;
+            List<String> chunk = new ArrayList<>();
+
             while ((line = br.readLine()) != null) {
                 if (isFirstLine) { isFirstLine = false; continue; }
-                if (!line.trim().isEmpty()) { lines.add(line); }
+                if (line.trim().isEmpty()) continue;
+
+                chunk.add(line);
+
+                if (chunk.size() == 5) {
+                    processChunk(chunk, executor, successCount, failCount, detailedLogs);
+                    chunk = new ArrayList<>();
+                }
             }
+
+            if (!chunk.isEmpty()) {
+                processChunk(chunk, executor, successCount, failCount, detailedLogs);
+            }
+
         } catch (Exception e) {
             System.err.println("Dosya okuma hatası: " + e.getMessage());
             return false;
         }
 
-        ExecutorService executor = Executors.newFixedThreadPool(5);
-
-        for (int i = 0; i < lines.size(); i += 5) {
-            int end = Math.min(i + 5, lines.size());
-            List<String> chunk = lines.subList(i, end);
-
-            CyclicBarrier barrier = new CyclicBarrier(chunk.size());
-
-            for (String line : chunk) {
-                executor.submit(() -> {
-                    try {
-                        saveStudentToDatabase(line, successCount, failCount, detailedLogs);
-                        barrier.await();
-                    } catch (Exception e) {
-                        Thread.currentThread().interrupt();
-                    }
-                });
-            }
-        }
-
         executor.shutdown();
         try {
-            // 3. MAIN THREAD'İ BEKLET: Tüm thread'ler bitene kadar log kaydını yapma
             executor.awaitTermination(1, TimeUnit.HOURS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
 
-        // 4. VERİTABANINA JOB LOG KAYDI OLUŞTURMA
         JobLog jobLog = new JobLog();
         jobLog.setFileName(file.getName());
         jobLog.setEntityType("STUDENTS");
@@ -88,14 +83,50 @@ public class StudentMultiThreadService {
         jobLog.setFailedRecords(failCount.get());
         jobLog.setCreatedAt(LocalDateTime.now());
         jobLog.setStatus(failCount.get() > 0 ? "FAILED" : "SUCCESS");
-        jobLog.setDetailedLogs(String.join("\n", detailedLogs)); // Logları alt alta birleştir
+        jobLog.setDetailedLogs(String.join("\n", detailedLogs));
 
         jobLogRepository.save(jobLog);
+
+        System.out.println("\n=======================================================");
+        System.out.println("🏁 TÜM İŞLEMLER BİTTİ. LOG VERİTABANINA YAZILDI.");
+        System.out.println("=======================================================\n");
 
         return true;
     }
 
-    private void saveStudentToDatabase(String csvLine, AtomicInteger successCount, AtomicInteger failCount, List<String> detailedLogs) {
+    private void processChunk(List<String> chunk, ExecutorService executor, AtomicInteger successCount, AtomicInteger failCount, List<String> detailedLogs) {
+        
+        CyclicBarrier barrier = new CyclicBarrier(chunk.size(), () -> {
+            System.out.println("\n   ---> 🟢 BARİYER AÇILDI! [" + chunk.size() + " Thread] arkadaşını bekledi ve işini başarıyla bitirdi.\n");
+        });
+
+        for (String line : chunk) {
+            executor.submit(() -> {
+                String threadName = Thread.currentThread().getName();
+                String[] data = line.split(",");
+                String studentName = data.length > 1 ? data[0] + " " + data[1] : "Bilinmeyen";
+
+                try {
+                    System.out.println(" 🏃‍♂️ [" + threadName + "] " + studentName + " isimli öğrenciyi okumaya başladı...");
+                    
+                    // SİMÜLASYON: Her thread rastgele 1 ile 3 saniye arası bir sürede işlem yapıyor gibi uyur.
+                    int sleepTime = 1000 + random.nextInt(2000); 
+                    Thread.sleep(sleepTime);
+
+                    saveStudentToDatabase(line, successCount, failCount, detailedLogs, threadName, studentName);
+                    
+                    System.out.println(" 🛑 [" + threadName + "] " + studentName + " işlemini bitirdi. Bariyerde diğerlerini bekliyor...");
+                    
+                    barrier.await(); 
+
+                } catch (Exception e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+        }
+    }
+
+    private void saveStudentToDatabase(String csvLine, AtomicInteger successCount, AtomicInteger failCount, List<String> detailedLogs, String threadName, String studentName) {
         String[] data = csvLine.split(",");
 
         if (data.length >= 3) {
@@ -113,15 +144,14 @@ public class StudentMultiThreadService {
 
             try {
                 accountRepository.save(student);
-                successCount.incrementAndGet(); // Başarılı sayısını 1 artır
-                detailedLogs.add("✅ " + firstName + " " + lastName + " - Successfully added.");
+                successCount.incrementAndGet();
+                detailedLogs.add("✅ " + studentName + " - Successfully added.");
             } catch (DataIntegrityViolationException e) {
-                // Veritabanında aynı numara zaten varsa bu hataya (duplicate key) düşer
-                failCount.incrementAndGet(); // Başarısız sayısını 1 artır
-                detailedLogs.add("❌ " + firstName + " " + lastName + " - Failed: Student number (" + studentNum + ") already exists.");
+                failCount.incrementAndGet();
+                detailedLogs.add("❌ " + studentName + " - Failed: Student number (" + studentNum + ") already exists.");
             } catch (Exception e) {
                 failCount.incrementAndGet();
-                detailedLogs.add("❌ " + firstName + " " + lastName + " - Failed: " + e.getMessage());
+                detailedLogs.add("❌ " + studentName + " - Failed: " + e.getMessage());
             }
         }
     }
