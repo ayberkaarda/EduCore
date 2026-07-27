@@ -28,9 +28,26 @@ export default function JobLogs({ appMode }) {
 
     if (!isAdmin) return <div className="card"><h2>Access Denied</h2><p>Only administrators can view system logs.</p></div>
 
-    const parseDetails = (jsonString) => {
-        try { return JSON.parse(jsonString); }
-        catch(e) { return []; }
+    const parseDetails = (logString) => {
+        if (!logString) return [];
+        
+        // Eğer backend gerçekten JSON gönderdiyse (örneğin eski kayıtlardan kalma) onu desteklemek için:
+        if (logString.trim().startsWith('[')) {
+            try { return JSON.parse(logString); } 
+            catch(e) { /* Hata olursa string olarak bölmeye devam et */ }
+        }
+        
+        // Bizim Multi-Thread servisimizin gönderdiği format: Düz metni satırlara böl
+        return logString.split('\n')
+            .filter(line => line.trim() !== '') // Boş satırları yoksay
+            .map(line => {
+                // Ön tarafta status ikonlarını göstermek için metni analiz edip basit bir JSON objesine dönüştürüyoruz
+                const isSuccess = line.startsWith('✅');
+                return {
+                    status: isSuccess ? 'SUCCESS' : 'FAILED',
+                    message: line.replace('✅ ', '').replace('❌ ', '') // Baştaki ikonları temizle
+                };
+            });
     }
 
     const handleSelect = (id) => {
