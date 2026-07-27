@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { FileText, CheckCircle, XCircle, Loader2, FileSearch, Trash2, Download } from 'lucide-react'
+import { FileText, CheckCircle, XCircle, AlertCircle, Loader2, FileSearch, Trash2, Download } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 
 export default function JobLogs({ appMode }) {
@@ -31,21 +31,18 @@ export default function JobLogs({ appMode }) {
     const parseDetails = (logString) => {
         if (!logString) return [];
         
-        // Eğer backend gerçekten JSON gönderdiyse (örneğin eski kayıtlardan kalma) onu desteklemek için:
         if (logString.trim().startsWith('[')) {
             try { return JSON.parse(logString); } 
             catch(e) { /* Hata olursa string olarak bölmeye devam et */ }
         }
         
-        // Bizim Multi-Thread servisimizin gönderdiği format: Düz metni satırlara böl
         return logString.split('\n')
-            .filter(line => line.trim() !== '') // Boş satırları yoksay
+            .filter(line => line.trim() !== '') 
             .map(line => {
-                // Ön tarafta status ikonlarını göstermek için metni analiz edip basit bir JSON objesine dönüştürüyoruz
                 const isSuccess = line.startsWith('✅');
                 return {
                     status: isSuccess ? 'SUCCESS' : 'FAILED',
-                    message: line.replace('✅ ', '').replace('❌ ', '') // Baştaki ikonları temizle
+                    message: line.replace('✅ ', '').replace('❌ ', '') 
                 };
             });
     }
@@ -66,7 +63,6 @@ export default function JobLogs({ appMode }) {
         }
     }
 
-    // --- SİLME İŞLEMİ ---
     const handleDeleteSelected = async () => {
         if (selectedIds.length === 0) return;
         if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} log(s)?`)) return;
@@ -80,13 +76,11 @@ export default function JobLogs({ appMode }) {
         }
     }
 
-    // --- GÜNCELLENDİ: HER LOG İÇİN AYRI DOSYA İNDİRME İŞLEMİ ---
     const handleDownloadSelected = () => {
         if (selectedIds.length === 0) return;
 
         const logsToExport = logs.filter(log => selectedIds.includes(log.id));
 
-        // Döngüye alıp her birini ayrı ayrı indiriyoruz
         logsToExport.forEach(log => {
             const detailedData = {
                 ...log,
@@ -98,7 +92,6 @@ export default function JobLogs({ appMode }) {
 
             const link = document.createElement('a');
             link.href = url;
-            // Dosya adını birime ve log ismine göre özel yapıyoruz
             link.download = `Log_${log.entityType}_${log.fileName}_ID-${log.id}.json`;
             document.body.appendChild(link);
             link.click();
@@ -108,6 +101,38 @@ export default function JobLogs({ appMode }) {
 
         toast.success(`${selectedIds.length} file(s) downloaded!`);
     }
+
+    const renderStatusBadge = (log) => {
+    // Verileri kesin olarak sayıya çeviriyoruz (Güvenlik amaçlı Number kullanıyoruz)
+    const success = Number(log.successfulRecords) || 0;
+    const failed = Number(log.failedRecords) || 0;
+    const total = success + failed;
+
+    // 1. Durum: Hiç işlem yapılmadıysa veya başarısız sayısı başarılıdan fazlaysa
+    if ((total === 0 && log.status === 'FAILED') || (success === 0 && failed > 0) || (failed > success)) {
+        return (
+            <span className="badge" style={{ backgroundColor: '#fee2e2', color: '#b91c1c' }}>
+                <XCircle size={12} style={{display:'inline', marginRight:'4px'}}/> FAILED
+            </span>
+        );
+    }
+
+    // 2. Durum: Hata var ama başarılı kayıt sayısı daha fazla (Kısmi Başarı)
+    if (failed > 0 && success >= failed) {
+        return (
+            <span className="badge" style={{ backgroundColor: '#fef3c7', color: '#b45309' }}>
+                <AlertCircle size={12} style={{display:'inline', marginRight:'4px'}}/> PARTIAL SUCCESS
+            </span>
+        );
+    }
+
+    // 3. Durum: Hiç hata yok (Tam Başarı)
+    return (
+        <span className="badge success">
+            <CheckCircle size={12} style={{display:'inline', marginRight:'4px'}}/> SUCCESS
+        </span>
+    );
+};
 
     return (
         <div className="card">
@@ -157,18 +182,15 @@ export default function JobLogs({ appMode }) {
                                 </td>
                                 <td style={{ padding: '1rem', fontWeight: '500' }}>{log.fileName}</td>
                                 <td style={{ padding: '1rem' }}>
-                      <span className="badge" style={{ backgroundColor: log.entityType === 'COURSES' ? '#fef3c7' : '#e0e7ff', color: log.entityType === 'COURSES' ? '#b45309' : '#3730a3' }}>
-                          {log.entityType || 'UNKNOWN'}
-                      </span>
+                                  <span className="badge" style={{ backgroundColor: log.entityType === 'COURSES' ? '#fef3c7' : '#e0e7ff', color: log.entityType === 'COURSES' ? '#b45309' : '#3730a3' }}>
+                                      {log.entityType || 'UNKNOWN'}
+                                  </span>
                                 </td>
                                 <td style={{ padding: '1rem' }}>{new Date(log.createdAt).toLocaleString()}</td>
                                 <td style={{ padding: '1rem', color: '#10b981', fontWeight: '600' }}>{log.successfulRecords}</td>
                                 <td style={{ padding: '1rem', color: '#ef4444', fontWeight: '600' }}>{log.failedRecords}</td>
                                 <td style={{ padding: '1rem' }}>
-                                    {log.status === 'SUCCESS' ?
-                                        <span className="badge success"><CheckCircle size={12} style={{display:'inline', marginRight:'4px'}}/> SUCCESS</span> :
-                                        <span className="badge" style={{ backgroundColor: '#fee2e2', color: '#b91c1c' }}><XCircle size={12} style={{display:'inline', marginRight:'4px'}}/> FAILED</span>
-                                    }
+                                    {renderStatusBadge(log)}
                                 </td>
                                 <td style={{ padding: '1rem', textAlign: 'right' }}>
                                     <button className="btn-secondary" onClick={() => setSelectedLog(log)} style={{ padding: '0.4rem 0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
