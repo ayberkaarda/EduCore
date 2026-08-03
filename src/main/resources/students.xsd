@@ -3,6 +3,7 @@
            xmlns:tns="http://example.com/project3/soap"
            elementFormDefault="qualified">
 
+    <!-- 1. Öğrenci Ekleme İsteği -->
     <xs:element name="RegisterStudentRequest">
         <xs:complexType>
             <xs:sequence>
@@ -13,6 +14,7 @@
         </xs:complexType>
     </xs:element>
 
+    <!-- 1. Öğrenci Ekleme Cevabı -->
     <xs:element name="RegisterStudentResponse">
         <xs:complexType>
             <xs:sequence>
@@ -21,4 +23,29 @@
             </xs:sequence>
         </xs:complexType>
     </xs:element>
+
+    <!-- 2. Öğrenci Listeleme İsteği (Parametre almıyor) -->
+    <xs:element name="GetAllStudentsRequest">
+        <xs:complexType>
+            <xs:sequence/>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- 2. Öğrenci Listeleme Cevabı -->
+    <xs:element name="GetAllStudentsResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="students" type="tns:StudentInfo" maxOccurs="unbounded" minOccurs="0"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- Tekil Öğrenci Bilgisi Yapısı -->
+    <xs:complexType name="StudentInfo">
+        <xs:sequence>
+            <xs:element name="id" type="xs:long"/>
+            <xs:element name="fullName" type="xs:string"/>
+        </xs:sequence>
+    </xs:complexType>
+
 </xs:schema>
