@@ -17,19 +17,27 @@ export default function StudentList({ appMode }) {
     const [ipInputMode, setIpInputMode] = useState('manual');
     const [page, setPage] = useState(0)
     const [totalPages, setTotalPages] = useState(1)
+
+    // Backend tabanlı sıralama için state'ler (İsme göre asc/desc)
+    const [sortDirection, setSortDirection] = useState('asc')
+
     const pageSize = 8
 
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
-    const [newStudent, setNewStudent] = useState({ firstName: '', lastName: '', studentNumber: '' })
-    const [editStudent, setEditStudent] = useState({ id: null, firstName: '', lastName: '', studentNumber: '', ipAddress: '' })
+    // Not: Backend'deki form yapına göre alanlar değişebilir (name veya firstName)
+    const [newStudent, setNewStudent] = useState({ name: '', studentNumber: '' })
+    const [editStudent, setEditStudent] = useState({ id: null, name: '', studentNumber: '', ipAddress: '' })
 
     const debouncedSearchTerm = useDebounce(searchTerm, 500)
     const navigate = useNavigate()
 
     useEffect(() => { setPage(0) }, [debouncedSearchTerm])
-    useEffect(() => { fetchStudents(debouncedSearchTerm, page) }, [debouncedSearchTerm, page])
+    // Arama, sayfa veya sıralama yönü değiştiğinde veriyi backend'den tekrar çek
+    useEffect(() => {
+        fetchStudents(debouncedSearchTerm, page, sortDirection)
+    }, [debouncedSearchTerm, page, sortDirection])
 
     // Edit modalı açıldığında IP havuzunu Backend'den çek
     useEffect(() => {
@@ -45,16 +53,20 @@ export default function StudentList({ appMode }) {
             };
 
             fetchAvailableIps();
-            setIpInputMode('manual'); // Her modal açılışında varsayılan olarak manual veya mevcut IP gelsin
+            setIpInputMode('manual');
         }
     }, [isEditModalOpen]);
 
-    const fetchStudents = async (search, currentPage) => {
+    const fetchStudents = async (search, currentPage, direction) => {
         setIsLoading(true)
         try {
-            const response = await axios.get(`${API_BASE}/accounts/students?search=${search}&page=${currentPage}&size=${pageSize}`)
-            setStudents(response.data.content)
-            setTotalPages(response.data.totalPages)
+            // Backend'in desteklediği sıralama parametresi (direction=asc/desc) buraya eklendi
+            const response = await axios.get(`${API_BASE}/students?search=${search}&page=${currentPage}&size=${pageSize}&direction=${direction}`)
+            // Eğer backend direkt liste dönüyorsa response.data, sayfalama dönüyorsa response.data.content kullanılabilir
+            setStudents(response.data.content || response.data)
+            if(response.data.totalPages) {
+                setTotalPages(response.data.totalPages)
+            }
         } catch (error) {
             toast.error("Failed to load students")
         } finally {
@@ -65,28 +77,30 @@ export default function StudentList({ appMode }) {
     const handleCreateStudent = async (e) => {
         e.preventDefault()
         try {
-            await axios.post(`${API_BASE}/accounts/student`, newStudent)
+            await axios.post(`${API_BASE}/students`, newStudent)
             toast.success('Student successfully added!')
             setIsModalOpen(false)
-            setNewStudent({ firstName: '', lastName: '', studentNumber: '' })
-            fetchStudents(debouncedSearchTerm, page)
-        } catch (error) { toast.error('Error occurred.') }
+            setNewStudent({ name: '', studentNumber: '' })
+            fetchStudents(debouncedSearchTerm, page, sortDirection)
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Error occurred (Aynı kayıt mevcut olabilir).')
+        }
     }
 
     const handleDelete = async (id) => {
         if(!window.confirm('Are you sure you want to delete this student?')) return;
         try {
-            await axios.delete(`${API_BASE}/accounts/${id}`)
+            // Soft delete endpoint tetiklenir
+            await axios.delete(`${API_BASE}/students/${id}`)
             toast.success('Student deleted successfully!')
-            fetchStudents(debouncedSearchTerm, page)
+            fetchStudents(debouncedSearchTerm, page, sortDirection)
         } catch (error) { toast.error('Failed to delete student.') }
     }
 
     const openEditModal = (student) => {
         setEditStudent({
             id: student.id,
-            firstName: student.firstName,
-            lastName: student.lastName,
+            name: student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim(),
             studentNumber: student.studentNumber || '',
             ipAddress: student.ipAddress || ''
         })
@@ -96,18 +110,18 @@ export default function StudentList({ appMode }) {
     const handleUpdateStudent = async (e) => {
         e.preventDefault()
         try {
-            await axios.put(`${API_BASE}/accounts/${editStudent.id}`, {
-                firstName: editStudent.firstName,
-                lastName: editStudent.lastName,
-                studentNumber: editStudent.studentNumber,
-                ipAddress: editStudent.ipAddress
-            })
+            await axios.put(`${API_BASE}/students/${editStudent.id}`, editStudent)
             toast.success('Student updated successfully!')
             setIsEditModalOpen(false)
-            fetchStudents(debouncedSearchTerm, page)
+            fetchStudents(debouncedSearchTerm, page, sortDirection)
         } catch (error) {
             toast.error(error.response?.data?.error || 'Failed to update student.')
         }
+    }
+
+    // Sıralama yönünü değiştiren fonksiyon (Backend'e istek atılmasını sağlar)
+    const toggleSortDirection = () => {
+        setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'))
     }
 
     return (
@@ -140,7 +154,14 @@ export default function StudentList({ appMode }) {
                                     <thead>
                                     <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
                                         <th style={{ padding: '1rem', color: '#6b7280' }}>ID</th>
-                                        <th style={{ padding: '1rem', color: '#6b7280' }}>Full Name</th>
+                                        {/* Backend tabanlı sıralama tetikleyicisi */}
+                                        <th
+                                            onClick={toggleSortDirection}
+                                            style={{ padding: '1rem', color: '#6b7280', cursor: 'pointer', userSelect: 'none' }}
+                                            title="Click to sort by name"
+                                        >
+                                            Full Name {sortDirection === 'asc' ? '▲' : '▼'}
+                                        </th>
                                         <th style={{ padding: '1rem', color: '#6b7280' }}>IP Address</th>
                                         <th style={{ padding: '1rem', textAlign: 'right', color: '#6b7280' }}>Actions</th>
                                     </tr>
@@ -152,7 +173,7 @@ export default function StudentList({ appMode }) {
                                             <td style={{ padding: '1rem' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                                     <div style={{ backgroundColor: '#f3f4f6', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={18} color="#4f46e5"/></div>
-                                                    {student.firstName} {student.lastName}
+                                                    {student.name || `${student.firstName || ''} ${student.lastName || ''}`}
                                                 </div>
                                             </td>
                                             <td style={{ padding: '1rem' }}>
@@ -195,8 +216,7 @@ export default function StudentList({ appMode }) {
                     <div className="modal-content">
                         <h3 style={{ marginTop: 0 }}>Add New Student</h3>
                         <form onSubmit={handleCreateStudent}>
-                            <div className="form-group"><label>First Name</label><input required type="text" value={newStudent.firstName} onChange={e => setNewStudent({...newStudent, firstName: e.target.value})} /></div>
-                            <div className="form-group"><label>Last Name</label><input required type="text" value={newStudent.lastName} onChange={e => setNewStudent({...newStudent, lastName: e.target.value})} /></div>
+                            <div className="form-group"><label>Full Name</label><input required type="text" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} /></div>
                             <div className="form-group"><label>Student ID</label><input required type="text" placeholder="e.g. 2601005" value={newStudent.studentNumber} onChange={e => setNewStudent({...newStudent, studentNumber: e.target.value})} /></div>
                             <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary">Save</button></div>
                         </form>
@@ -209,60 +229,45 @@ export default function StudentList({ appMode }) {
                     <div className="modal-content">
                         <h3 style={{ marginTop: 0 }}>Edit Student</h3>
                         <form onSubmit={handleUpdateStudent}>
-                            <div className="form-group"><label>First Name</label><input required type="text" value={editStudent.firstName} onChange={e => setEditStudent({...editStudent, firstName: e.target.value})} /></div>
-                            <div className="form-group"><label>Last Name</label><input required type="text" value={editStudent.lastName} onChange={e => setEditStudent({...editStudent, lastName: e.target.value})} /></div>
+                            <div className="form-group"><label>Full Name</label><input required type="text" value={editStudent.name} onChange={e => setEditStudent({...editStudent, name: e.target.value})} /></div>
                             <div className="form-group"><label>Student ID</label><input required type="text" value={editStudent.studentNumber} onChange={e => setEditStudent({...editStudent, studentNumber: e.target.value})} /></div>
 
                             <div className="form-group">
                                 <label>Assigned IP Address (Optional)</label>
-
                                 <select
                                     style={{ marginBottom: '10px', width: '100%', padding: '0.6rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', outline: 'none' }}
                                     value={ipInputMode === 'manual' ? 'manual' : (editStudent.ipAddress || 'manual')}
                                     onChange={(e) => {
                                         const selectedValue = e.target.value;
-
                                         if (selectedValue === 'manual') {
                                             setIpInputMode('manual');
                                             setEditStudent({ ...editStudent, ipAddress: '' });
                                         } else {
-                                            // Seçilen IP objesini mevcut listeden bul
                                             const selectedIpObj = availableIps.find(ipObj => {
                                                 const val = ipObj.ipAddress || ipObj.address || ipObj.cidr || ipObj.definition || ipObj.value;
                                                 return val === selectedValue;
                                             });
 
                                             if (selectedIpObj && selectedIpObj.type === 'STATIC') {
-                                                // Sadece STATİK ise inputu gizle ve doğrudan IP'yi ata
                                                 setIpInputMode('select');
                                                 setEditStudent({ ...editStudent, ipAddress: selectedValue });
                                             } else {
-                                                // RANGE veya CIDR (Havuz) seçildiyse manuel girişi açık tut
                                                 setIpInputMode('manual');
-
-                                                // Kullanıcıya kolaylık olması için havuzun başını input'a yazdırıyoruz
-                                                const prefix = selectedValue.split(/[-/]/)[0]; // 192.168.1.0/24 -> 192.168.1.0
+                                                const prefix = selectedValue.split(/[-/]/)[0];
                                                 setEditStudent({ ...editStudent, ipAddress: prefix });
-
                                                 toast("Havuz seçildi. Lütfen bu aralıktan tekil bir IP adresi girin.", { icon: 'ℹ️' });
                                             }
                                         }
                                     }}
                                 >
                                     <option value="manual">-- Yeni IP Gir (Manuel) --</option>
-
                                     {availableIps.map((ipObj) => {
-                                        // GÜÇLÜ YAKALAYICI: Backend'deki isim ne olursa olsun içinde '.' geçen metni bulur.
                                         const ipValue = ipObj.ipAddress || ipObj.address || ipObj.cidr || ipObj.definition || ipObj.value ||
                                             Object.values(ipObj).find(v => typeof v === 'string' && v.includes('.')) ||
                                             "IP BULUNAMADI";
-
-                                        // Bu IP sistemde başka bir öğrenci tarafından kullanılıyor mu?
                                         const isUsedByAnother = students.some(
                                             (s) => s.ipAddress === ipValue && s.id !== editStudent.id
                                         );
-
-                                        // Sadece STATIC olanları kilitliyoruz. RANGE/CIDR havuzları kilitlenmez.
                                         const isLocked = ipObj.type === 'STATIC' && isUsedByAnother;
 
                                         return (
