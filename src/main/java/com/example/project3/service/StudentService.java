@@ -1,7 +1,5 @@
 package com.example.project3.service;
 
-import com.example.project3.entity.Student;
-import com.example.project3.repository.StudentRepository;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
