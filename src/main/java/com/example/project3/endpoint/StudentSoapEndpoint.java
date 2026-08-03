@@ -28,8 +28,16 @@ public class StudentSoapEndpoint {
 
         try {
             Account student = new Account();
-            // XSD'den gelen alanları entity'mize (Account) mapliyoruz
-            student.setFullName(request.getFirstName() + " " + request.getLastName());
+
+            // Account sınıfındaki mevcut değişkenlere (firstName, lastName, studentNumber) değerleri atıyoruz:
+            student.setFirstName(request.getFirstName());
+            student.setLastName(request.getLastName());
+            student.setStudentNumber(request.getStudentNumber());
+
+            // DİKKAT: Veritabanında username ve password "nullable=false" olduğu için hata almamak adına değer atamalıyız.
+            student.setUsername(request.getStudentNumber()); // Kullanıcı adı olarak öğrenci numarasını kullanıyoruz
+            student.setPassword("123456"); // Geçici bir varsayılan şifre atıyoruz. (Normalde PasswordEncoder ile şifrelenmeli)
+
             student.setRole(Role.USER);
 
             accountRepository.save(student);
@@ -58,7 +66,11 @@ public class StudentSoapEndpoint {
         for (Account account : accounts) {
             StudentInfo studentInfo = new StudentInfo();
             studentInfo.setId(account.getId());
-            studentInfo.setFullName(account.getFullName() != null ? account.getFullName() : "İsimsiz");
+
+            // Account'taki firstName ve lastName birleştirilerek SOAP tarafındaki fullName'e aktarılıyor
+            String fName = account.getFirstName() != null ? account.getFirstName() : "";
+            String lName = account.getLastName() != null ? account.getLastName() : "";
+            studentInfo.setFullName((fName + " " + lName).trim());
 
             response.getStudents().add(studentInfo);
         }
