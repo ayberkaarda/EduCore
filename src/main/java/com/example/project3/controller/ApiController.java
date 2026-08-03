@@ -78,21 +78,51 @@ public class ApiController {
                 // BURAYA a.getIpAddress() EKLENDİ
                 .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole(), a.getIpAddress()));
     }
+    // --- 1. Sadece silinmemiş (deleted = 0) öğrencileri veritabanı seviyesinde sıralı listeleme ---
     @GetMapping("/students")
-    public List<Student> getStudents(
-            @RequestParam(defaultValue = "name") String sortBy,
+    public List<Account> getStudents(
+            @RequestParam(defaultValue = "firstName") String sortBy,
             @RequestParam(defaultValue = "asc") String direction) {
-        return studentService.getActiveStudents(sortBy, direction);
+
+        org.springframework.data.domain.Sort.Direction sortDirection =
+                direction.equalsIgnoreCase("desc") ? org.springframework.data.domain.Sort.Direction.DESC : org.springframework.data.domain.Sort.Direction.ASC;
+
+        org.springframework.data.domain.Sort sort = org.springframework.data.domain.Sort.by(sortDirection, sortBy);
+
+        // Sadece silinmemiş olan (deleted = 0) kayıtları getirir
+        return accountRepository.findByDeleted(0, sort);
     }
 
+    // --- 2. Soft Delete (Veriyi silmek yerine deleted = 1 yapma) ---
     @DeleteMapping("/students/{id}")
-    public void deleteStudent(@PathVariable Long id) {
-        studentService.softDeleteStudent(id);
+    public ResponseEntity<?> deleteStudent(@PathVariable Long id) {
+        Account account = accountRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+        account.setDeleted(1); // Soft delete işaretlemesi
+        accountRepository.save(account);
+        return ResponseEntity.ok("{\"message\": \"Student soft-deleted successfully.\"}");
     }
 
+    // --- 3. Yeni Öğrenci Ekleme (Silinmiş olsa dahi aynı studentNumber ile mükerrer kontrolü) ---
     @PostMapping("/students")
-    public Student addStudent(@RequestBody Student student) {
-        return studentService.createStudent(student);
+    public ResponseEntity<?> addStudent(@RequestBody Account student) {
+        if (student.getStudentNumber() != null && accountRepository.existsByStudentNumber(student.getStudentNumber())) {
+            return ResponseEntity.badRequest().body("{\"error\": \"Bu öğrenci numarası ile daha önce bir kayıt oluşturulmuş (silinmiş olsa dahi tekrar eklenemez).\"}");
+        }
+
+        student.setRole(Role.USER);
+        student.setDeleted(0); // Varsayılan aktif
+
+        if (student.getUsername() == null) {
+            String generatedUsername = student.getFirstName().toLowerCase().replaceAll("\\s+", "") + (System.currentTimeMillis() % 1000);
+            student.setUsername(generatedUsername);
+        }
+        if (student.getPassword() == null) {
+            student.setPassword(passwordEncoder.encode("1234"));
+        }
+
+        Account savedAccount = accountRepository.save(student);
+        return ResponseEntity.ok(savedAccount);
     }
     @GetMapping("/accounts")
     public org.springframework.data.domain.Page<AccountDTO> searchAllAccounts(
