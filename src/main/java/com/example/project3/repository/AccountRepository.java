@@ -24,4 +24,12 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
             "LOWER(a.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "LOWER(COALESCE(a.studentNumber, '')) LIKE LOWER(CONCAT('%', :search, '%'))")
     Page<Account> searchAllAccounts(@Param("search") String search, Pageable pageable);
+
+    // Silinmemiş ve arama kriterine uyan kayıtları sayfalama ve sıralama ile getirir
+    Page<Account>findByDeletedAndFirstNameContainingIgnoreCaseOrDeletedAndLastNameContainingIgnoreCase(
+            Integer deleted1, String firstName, Integer deleted2, String lastName, Pageable pageable
+    );
+
+    // Silinmiş dahil olmak üzere aynı studentNumber veya email ile mükerrer kontrolü için:
+    boolean existsByStudentNumber(String studentNumber);
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { Search, ChevronRight, User, Loader2, Plus, Edit, Trash2, Network } from 'lucide-react'
+import { Search, ChevronRight, User, Loader2, Plus, Edit, Trash2, Network, ArrowUpDown } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import { useDebounce } from './hooks/useDebounce'
 
@@ -18,7 +18,7 @@ export default function StudentList({ appMode }) {
     const [page, setPage] = useState(0)
     const [totalPages, setTotalPages] = useState(1)
 
-    // Backend tabanlı sıralama için state'ler (İsme göre asc/desc)
+    // Backend sıralaması için yön state'i (asc / desc)
     const [sortDirection, setSortDirection] = useState('asc')
 
     const pageSize = 8
@@ -26,20 +26,19 @@ export default function StudentList({ appMode }) {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
-    // Not: Backend'deki form yapına göre alanlar değişebilir (name veya firstName)
-    const [newStudent, setNewStudent] = useState({ name: '', studentNumber: '' })
-    const [editStudent, setEditStudent] = useState({ id: null, name: '', studentNumber: '', ipAddress: '' })
+    const [newStudent, setNewStudent] = useState({ firstName: '', lastName: '', studentNumber: '' })
+    const [editStudent, setEditStudent] = useState({ id: null, firstName: '', lastName: '', studentNumber: '', ipAddress: '' })
 
     const debouncedSearchTerm = useDebounce(searchTerm, 500)
     const navigate = useNavigate()
 
     useEffect(() => { setPage(0) }, [debouncedSearchTerm])
-    // Arama, sayfa veya sıralama yönü değiştiğinde veriyi backend'den tekrar çek
+
+    // Arama, sayfa veya sıralama yönü değiştiğinde backend'den veriyi yeniden çek
     useEffect(() => {
         fetchStudents(debouncedSearchTerm, page, sortDirection)
     }, [debouncedSearchTerm, page, sortDirection])
 
-    // Edit modalı açıldığında IP havuzunu Backend'den çek
     useEffect(() => {
         if (isEditModalOpen) {
             const fetchAvailableIps = async () => {
@@ -47,26 +46,21 @@ export default function StudentList({ appMode }) {
                     const response = await axios.get(`${API_BASE}/ips`);
                     setAvailableIps(response.data);
                 } catch (error) {
-                    console.error("IP listesi çekilemedi:", error);
                     toast.error("IP listesi yüklenemedi.");
                 }
             };
-
             fetchAvailableIps();
             setIpInputMode('manual');
         }
     }, [isEditModalOpen]);
 
+    // Backend çağrısına sortDirection parametresi eklendi
     const fetchStudents = async (search, currentPage, direction) => {
         setIsLoading(true)
         try {
-            // Backend'in desteklediği sıralama parametresi (direction=asc/desc) buraya eklendi
-            const response = await axios.get(`${API_BASE}/students?search=${search}&page=${currentPage}&size=${pageSize}&direction=${direction}`)
-            // Eğer backend direkt liste dönüyorsa response.data, sayfalama dönüyorsa response.data.content kullanılabilir
-            setStudents(response.data.content || response.data)
-            if(response.data.totalPages) {
-                setTotalPages(response.data.totalPages)
-            }
+            const response = await axios.get(`${API_BASE}/accounts/students?search=${search}&page=${currentPage}&size=${pageSize}&direction=${direction}`)
+            setStudents(response.data.content)
+            setTotalPages(response.data.totalPages)
         } catch (error) {
             toast.error("Failed to load students")
         } finally {
@@ -77,21 +71,20 @@ export default function StudentList({ appMode }) {
     const handleCreateStudent = async (e) => {
         e.preventDefault()
         try {
-            await axios.post(`${API_BASE}/students`, newStudent)
+            await axios.post(`${API_BASE}/accounts/student`, newStudent)
             toast.success('Student successfully added!')
             setIsModalOpen(false)
-            setNewStudent({ name: '', studentNumber: '' })
+            setNewStudent({ firstName: '', lastName: '', studentNumber: '' })
             fetchStudents(debouncedSearchTerm, page, sortDirection)
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Error occurred (Aynı kayıt mevcut olabilir).')
+            toast.error(error.response?.data?.message || 'Error occurred.')
         }
     }
 
     const handleDelete = async (id) => {
         if(!window.confirm('Are you sure you want to delete this student?')) return;
         try {
-            // Soft delete endpoint tetiklenir
-            await axios.delete(`${API_BASE}/students/${id}`)
+            await axios.delete(`${API_BASE}/accounts/${id}`)
             toast.success('Student deleted successfully!')
             fetchStudents(debouncedSearchTerm, page, sortDirection)
         } catch (error) { toast.error('Failed to delete student.') }
@@ -100,7 +93,8 @@ export default function StudentList({ appMode }) {
     const openEditModal = (student) => {
         setEditStudent({
             id: student.id,
-            name: student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+            firstName: student.firstName,
+            lastName: student.lastName,
             studentNumber: student.studentNumber || '',
             ipAddress: student.ipAddress || ''
         })
@@ -110,7 +104,12 @@ export default function StudentList({ appMode }) {
     const handleUpdateStudent = async (e) => {
         e.preventDefault()
         try {
-            await axios.put(`${API_BASE}/students/${editStudent.id}`, editStudent)
+            await axios.put(`${API_BASE}/accounts/${editStudent.id}`, {
+                firstName: editStudent.firstName,
+                lastName: editStudent.lastName,
+                studentNumber: editStudent.studentNumber,
+                ipAddress: editStudent.ipAddress
+            })
             toast.success('Student updated successfully!')
             setIsEditModalOpen(false)
             fetchStudents(debouncedSearchTerm, page, sortDirection)
@@ -119,8 +118,8 @@ export default function StudentList({ appMode }) {
         }
     }
 
-    // Sıralama yönünü değiştiren fonksiyon (Backend'e istek atılmasını sağlar)
-    const toggleSortDirection = () => {
+    // Sıralama yönünü değiştiren tetikleyici
+    const toggleSorting = () => {
         setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'))
     }
 
@@ -154,13 +153,15 @@ export default function StudentList({ appMode }) {
                                     <thead>
                                     <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
                                         <th style={{ padding: '1rem', color: '#6b7280' }}>ID</th>
-                                        {/* Backend tabanlı sıralama tetikleyicisi */}
+                                        {/* Backend Sıralama Butonu / Başlığı */}
                                         <th
-                                            onClick={toggleSortDirection}
+                                            onClick={toggleSorting}
                                             style={{ padding: '1rem', color: '#6b7280', cursor: 'pointer', userSelect: 'none' }}
-                                            title="Click to sort by name"
+                                            title="İsme göre sırala"
                                         >
-                                            Full Name {sortDirection === 'asc' ? '▲' : '▼'}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                Full Name <ArrowUpDown size={14} /> ({sortDirection.toUpperCase()})
+                                            </div>
                                         </th>
                                         <th style={{ padding: '1rem', color: '#6b7280' }}>IP Address</th>
                                         <th style={{ padding: '1rem', textAlign: 'right', color: '#6b7280' }}>Actions</th>
@@ -173,7 +174,7 @@ export default function StudentList({ appMode }) {
                                             <td style={{ padding: '1rem' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                                     <div style={{ backgroundColor: '#f3f4f6', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={18} color="#4f46e5"/></div>
-                                                    {student.name || `${student.firstName || ''} ${student.lastName || ''}`}
+                                                    {student.firstName} {student.lastName}
                                                 </div>
                                             </td>
                                             <td style={{ padding: '1rem' }}>
@@ -211,12 +212,14 @@ export default function StudentList({ appMode }) {
                         )}
             </div>
 
+            {/* Modal bileşenleri aynen korunur */}
             {isModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">
                         <h3 style={{ marginTop: 0 }}>Add New Student</h3>
                         <form onSubmit={handleCreateStudent}>
-                            <div className="form-group"><label>Full Name</label><input required type="text" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} /></div>
+                            <div className="form-group"><label>First Name</label><input required type="text" value={newStudent.firstName} onChange={e => setNewStudent({...newStudent, firstName: e.target.value})} /></div>
+                            <div className="form-group"><label>Last Name</label><input required type="text" value={newStudent.lastName} onChange={e => setNewStudent({...newStudent, lastName: e.target.value})} /></div>
                             <div className="form-group"><label>Student ID</label><input required type="text" placeholder="e.g. 2601005" value={newStudent.studentNumber} onChange={e => setNewStudent({...newStudent, studentNumber: e.target.value})} /></div>
                             <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary">Save</button></div>
                         </form>
@@ -229,7 +232,8 @@ export default function StudentList({ appMode }) {
                     <div className="modal-content">
                         <h3 style={{ marginTop: 0 }}>Edit Student</h3>
                         <form onSubmit={handleUpdateStudent}>
-                            <div className="form-group"><label>Full Name</label><input required type="text" value={editStudent.name} onChange={e => setEditStudent({...editStudent, name: e.target.value})} /></div>
+                            <div className="form-group"><label>First Name</label><input required type="text" value={editStudent.firstName} onChange={e => setEditStudent({...editStudent, firstName: e.target.value})} /></div>
+                            <div className="form-group"><label>Last Name</label><input required type="text" value={editStudent.lastName} onChange={e => setEditStudent({...editStudent, lastName: e.target.value})} /></div>
                             <div className="form-group"><label>Student ID</label><input required type="text" value={editStudent.studentNumber} onChange={e => setEditStudent({...editStudent, studentNumber: e.target.value})} /></div>
 
                             <div className="form-group">
