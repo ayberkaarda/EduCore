@@ -78,7 +78,22 @@ public class ApiController {
                 // BURAYA a.getIpAddress() EKLENDİ
                 .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole(), a.getIpAddress()));
     }
+    @GetMapping("/students")
+    public List<Student> getStudents(
+            @RequestParam(defaultValue = "name") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction) {
+        return studentService.getActiveStudents(sortBy, direction);
+    }
 
+    @DeleteMapping("/students/{id}")
+    public void deleteStudent(@PathVariable Long id) {
+        studentService.softDeleteStudent(id);
+    }
+
+    @PostMapping("/students")
+    public Student addStudent(@RequestBody Student student) {
+        return studentService.createStudent(student);
+    }
     @GetMapping("/accounts")
     public org.springframework.data.domain.Page<AccountDTO> searchAllAccounts(
             @RequestParam(defaultValue = "") String search,
