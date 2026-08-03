@@ -34,9 +34,9 @@ public class StudentSoapEndpoint {
             student.setLastName(request.getLastName());
             student.setStudentNumber(request.getStudentNumber());
 
-            // DİKKAT: Veritabanında username ve password "nullable=false" olduğu için hata almamak adına değer atamalıyız.
+            // Veritabanında username ve password "nullable=false" olduğu için değer atıyoruz
             student.setUsername(request.getStudentNumber()); // Kullanıcı adı olarak öğrenci numarasını kullanıyoruz
-            student.setPassword("123456"); // Geçici bir varsayılan şifre atıyoruz. (Normalde PasswordEncoder ile şifrelenmeli)
+            student.setPassword("123456"); // Varsayılan şifre
 
             student.setRole(Role.USER);
 
