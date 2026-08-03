@@ -1,4 +1,5 @@
 package com.example.project3.entity;
+import jakarta.persistence.Column;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -36,6 +37,17 @@ public class Account implements UserDetails {
 
     @Column(unique = true) // FARKLI ÖĞRENCİLER AYNI IP'Yİ ALAMAZ
     private String ipAddress;
+
+    @Column(name = "deleted", nullable = false, columnDefinition = "int default 0")
+    private Integer deleted = 0;
+
+    public Integer getDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(Integer deleted) {
+        this.deleted = deleted;
+    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
