@@ -152,7 +152,14 @@ public class ApiController {
 
     @PostMapping("/accounts/student")
     public ResponseEntity<?> createStudent(@RequestBody Account account) {
+
+        // KURAL: Silinmiş olsa dahi aynı studentNumber ile kayıt yapılamaz!
+        if (account.getStudentNumber() != null && accountRepository.existsByStudentNumber(account.getStudentNumber())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Bu öğrenci numarası ile daha önce bir kayıt oluşturulmuş (silinmiş olsa dahi tekrar eklenemez)."));
+        }
+
         account.setRole(Role.USER);
+        account.setDeleted(0); // Varsayılan aktif (silinmemiş) olarak ayarla
 
         if (account.getUsername() == null) {
             String generatedUsername = account.getFirstName().toLowerCase().replaceAll("\\s+", "") + (System.currentTimeMillis() % 1000);
