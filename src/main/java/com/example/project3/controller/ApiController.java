@@ -5,6 +5,7 @@ import com.example.project3.dto.EnrollmentRequest;
 import com.example.project3.dto.AccountDTO;
 import com.example.project3.entity.*;
 import com.example.project3.repository.*;
+import com.example.project3.service.StudentService;
 import com.example.project3.util.IpAddressUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -26,15 +27,13 @@ public class ApiController {
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private IpBlockRepository ipBlockRepository;
     @Autowired private JobLogRepository jobLogRepository;
-
+    @Autowired private StudentService studentService; // BURAYA EKLENDİ
 
     // --- 1. DERS EKLEME (GÜVENLİK KALKANLI) ---
     @PostMapping("/enroll")
     public ResponseEntity<?> enrollCourse(@RequestBody EnrollmentRequest request) {
-        // Giren kişiyi yakala
         Account loggedInUser = (Account) org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
-        // KURAL: Admin değilse VE girdiği ID kendi ID'si değilse YASAKLA
         if (loggedInUser.getRole() != Role.ADMIN && !loggedInUser.getId().equals(request.accountId())) {
             return ResponseEntity.status(403).body("{\"error\": \"You can only modify your own courses!\"}");
         }
@@ -51,14 +50,12 @@ public class ApiController {
         return ResponseEntity.ok("{\"message\": \"Enrolled successfully.\"}");
     }
 
-    // --- 2. YENİ EKLENDİ: DERSİ BIRAKMA/SİLME (GÜVENLİK KALKANLI) ---
+    // --- 2. DERSİ BIRAKMA/SİLME (GÜVENLİK KALKANLI) ---
     @DeleteMapping("/accounts/{accountId}/courses/{courseId}")
     @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> dropCourse(@PathVariable Long accountId, @PathVariable Long courseId) {
-        // Giren kişiyi yakala
         Account loggedInUser = (Account) org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
-        // KURAL: Admin değilse VE girdiği ID kendi ID'si değilse YASAKLA
         if (loggedInUser.getRole() != Role.ADMIN && !loggedInUser.getId().equals(accountId)) {
             return ResponseEntity.status(403).body("{\"error\": \"You can only drop your own courses!\"}");
         }
@@ -74,14 +71,13 @@ public class ApiController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "firstName") String sortBy,
             @RequestParam(defaultValue = "asc") String direction,
-            @RequestParam(defaultValue = "0") int isDeleted // 0: Aktifler, 1: Silinenler
+            @RequestParam(defaultValue = "0") int isDeleted
     ) {
         org.springframework.data.domain.Sort.Direction sortDirection =
                 direction.equalsIgnoreCase("desc") ? org.springframework.data.domain.Sort.Direction.DESC : org.springframework.data.domain.Sort.Direction.ASC;
 
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by(sortDirection, sortBy));
 
-        // Doğru repository metodu çağrılıyor
         return accountRepository.searchAccountsByRoleAndDeleted(Role.USER, search, isDeleted, pageable)
                 .map(a -> new AccountDTO(
                         a.getId(),
@@ -93,52 +89,7 @@ public class ApiController {
                         a.getDeleted()
                 ));
     }
-    // --- 1. Sadece silinmemiş (deleted = 0) öğrencileri veritabanı seviyesinde sıralı listeleme ---
-    @GetMapping("/students")
-    public List<Account> getStudents(
-            @RequestParam(defaultValue = "firstName") String sortBy,
-            @RequestParam(defaultValue = "asc") String direction) {
 
-        org.springframework.data.domain.Sort.Direction sortDirection =
-                direction.equalsIgnoreCase("desc") ? org.springframework.data.domain.Sort.Direction.DESC : org.springframework.data.domain.Sort.Direction.ASC;
-
-        org.springframework.data.domain.Sort sort = org.springframework.data.domain.Sort.by(sortDirection, sortBy);
-
-        // Sadece silinmemiş olan (deleted = 0) kayıtları getirir
-        return accountRepository.findByDeleted(0, sort);
-    }
-
-    // --- 2. Soft Delete (Veriyi silmek yerine deleted = 1 yapma) ---
-    @DeleteMapping("/students/{id}")
-    public ResponseEntity<?> deleteStudent(@PathVariable Long id) {
-        Account account = accountRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Student not found"));
-        account.setDeleted(1); // Soft delete işaretlemesi
-        accountRepository.save(account);
-        return ResponseEntity.ok("{\"message\": \"Student soft-deleted successfully.\"}");
-    }
-
-    // --- 3. Yeni Öğrenci Ekleme (Silinmiş olsa dahi aynı studentNumber ile mükerrer kontrolü) ---
-    @PostMapping("/students")
-    public ResponseEntity<?> addStudent(@RequestBody Account student) {
-        if (student.getStudentNumber() != null && accountRepository.existsByStudentNumber(student.getStudentNumber())) {
-            return ResponseEntity.badRequest().body("{\"error\": \"Bu öğrenci numarası ile daha önce bir kayıt oluşturulmuş (silinmiş olsa dahi tekrar eklenemez).\"}");
-        }
-
-        student.setRole(Role.USER);
-        student.setDeleted(0); // Varsayılan aktif
-
-        if (student.getUsername() == null) {
-            String generatedUsername = student.getFirstName().toLowerCase().replaceAll("\\s+", "") + (System.currentTimeMillis() % 1000);
-            student.setUsername(generatedUsername);
-        }
-        if (student.getPassword() == null) {
-            student.setPassword(passwordEncoder.encode("1234"));
-        }
-
-        Account savedAccount = accountRepository.save(student);
-        return ResponseEntity.ok(savedAccount);
-    }
     @GetMapping("/accounts")
     public org.springframework.data.domain.Page<AccountDTO> searchAllAccounts(
             @RequestParam(defaultValue = "") String search,
@@ -147,9 +98,9 @@ public class ApiController {
     ) {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         return accountRepository.searchAllAccounts(search, pageable)
-                // BURAYA a.getIpAddress() EKLENDİ
-                .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole(), a.getIpAddress(),a.getDeleted()));
+                .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole(), a.getIpAddress(), a.getDeleted()));
     }
+
     @PutMapping("/accounts/{id}/role")
     public ResponseEntity<?> updateRole(@PathVariable Long id, @RequestBody java.util.Map<String, String> payload) {
         Account account = accountRepository.findById(id).orElseThrow();
@@ -160,14 +111,12 @@ public class ApiController {
 
     @PostMapping("/accounts/student")
     public ResponseEntity<?> createStudent(@RequestBody Account account) {
-
-        // KURAL: Silinmiş olsa dahi aynı studentNumber ile kayıt yapılamaz!
         if (account.getStudentNumber() != null && accountRepository.existsByStudentNumber(account.getStudentNumber())) {
             return ResponseEntity.badRequest().body(Map.of("error", "Bu öğrenci numarası ile daha önce bir kayıt oluşturulmuş (silinmiş olsa dahi tekrar eklenemez)."));
         }
 
         account.setRole(Role.USER);
-        account.setDeleted(0); // Varsayılan aktif (silinmemiş) olarak ayarla
+        account.setDeleted(0);
 
         if (account.getUsername() == null) {
             String generatedUsername = account.getFirstName().toLowerCase().replaceAll("\\s+", "") + (System.currentTimeMillis() % 1000);
@@ -181,41 +130,29 @@ public class ApiController {
         return ResponseEntity.ok(savedAccount);
     }
 
+    // --- TEK VE DOĞRU SOFT-DELETE SİLME METODU ---
     @DeleteMapping("/accounts/{id}")
-    public ResponseEntity<?> deleteAccount(@PathVariable Long id) {
-        Account account = accountRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Account not found"));
-
-        // FİZİKSEL SİLME İPTAL EDİLDİ - SOFT DELETE EKLENDİ
-        account.setDeleted(1);
-        accountRepository.save(account);
-
-        return ResponseEntity.ok("{\"message\": \"Deleted successfully.\"}");
+    public ResponseEntity<?> deleteStudent(@PathVariable Long id) {
+        studentService.softDeleteStudent(id);
+        return ResponseEntity.ok().body("{\"message\": \"Student soft-deleted successfully.\"}");
     }
 
     @PutMapping("/accounts/{id}")
     public ResponseEntity<?> updateAccount(@PathVariable Long id, @RequestBody Account updatedData) {
-        // 1. Öğrenciyi veritabanından çek
-        System.out.println("react ip adress: " + updatedData.getIpAddress());
         Account account = accountRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Student could not be found."));
 
-        // 2. Temel bilgileri güncelle
         account.setFirstName(updatedData.getFirstName());
         account.setLastName(updatedData.getLastName());
         account.setStudentNumber(updatedData.getStudentNumber());
 
-        // 3. IP Adresi güncelleme ve KONTROL mantığı
         String newIp = updatedData.getIpAddress();
 
         if (newIp != null && !newIp.trim().isEmpty()) {
-
-            // KURAL 1: Kusursuz IPv4 formatında mı?
             if (!IpAddressUtil.isValidIpv4(newIp)) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Invalid format"));
             }
 
-            // KURAL 2: Girilen IP, izin verilen IpBlock'lardan (RANGE, CIDR, STATIC) birinin içinde mi?
             long ipAsLong = IpAddressUtil.ipToLong(newIp);
             boolean isIpAllowed = ipBlockRepository.findAll().stream()
                     .anyMatch(block -> ipAsLong >= block.getStartIp() && ipAsLong <= block.getEndIp());
@@ -226,23 +163,22 @@ public class ApiController {
 
             account.setIpAddress(newIp);
         } else {
-            account.setIpAddress(null); // İptal edilirse boşalt
+            account.setIpAddress(null);
         }
 
-        // 4. Veritabanına kaydet ve KURAL 3: Unique Constraint Hatasını Yakala
         try {
             accountRepository.save(account);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            // Eğer veritabanı Unique Constraint patlatırsa buraya düşer
             return ResponseEntity.badRequest().body(Map.of("error", "This IP address was assigned to another student! Each student should get a different IP."));
         }
 
         return ResponseEntity.ok(Map.of("message", "Student successfully updated."));
     }
+
     @PostMapping("/courses")
     public ResponseEntity<?> createCourse(@RequestBody Course course) {
         Course savedCourse = courseRepository.save(course);
-        return ResponseEntity.ok(new CourseDTO(course.getId(), course.getName(), course.getTerm(), course.getInstructor()));
+        return ResponseEntity.ok(new CourseDTO(savedCourse.getId(), savedCourse.getName(), savedCourse.getTerm(), savedCourse.getInstructor()));
     }
 
     @DeleteMapping("/courses/{id}")
@@ -256,7 +192,7 @@ public class ApiController {
         Course course = courseRepository.findById(id).orElseThrow();
         course.setName(updatedData.getName());
         course.setTerm(updatedData.getTerm());
-        course.setInstructor(updatedData.getInstructor()); // DÜZELTME: Güncelleme esnasında Hoca da güncellenir!
+        course.setInstructor(updatedData.getInstructor());
         courseRepository.save(course);
         return ResponseEntity.ok("{\"message\": \"Course updated successfully.\"}");
     }
@@ -265,33 +201,29 @@ public class ApiController {
     public ResponseEntity<?> getJobLogs() {
         return ResponseEntity.ok(jobLogRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")));
     }
-    // GetAllCourses metodunu güncelle:
+
     @GetMapping("/courses")
     public List<CourseDTO> getAllCourses() {
         return courseRepository.findAll().stream()
-                .map(c -> new CourseDTO(c.getId(), c.getName(), c.getTerm(), c.getInstructor())) // YENİ
+                .map(c -> new CourseDTO(c.getId(), c.getName(), c.getTerm(), c.getInstructor()))
                 .collect(Collectors.toList());
     }
+
     @GetMapping("/ips")
     public ResponseEntity<?> getAllIps() {
-        // Sistemdeki tüm IP bloklarını / tanımlarını frontend'e gönder
         return ResponseEntity.ok(ipBlockRepository.findAll());
     }
 
-    // GetEnrolledCourses metodunu güncelle:
     @GetMapping("/accounts/{accountId}/courses")
     public List<CourseDTO> getEnrolledCourses(@PathVariable Long accountId) {
         return enrollmentRepository.findByAccountId(accountId).stream()
-                .map(e -> new CourseDTO(e.getCourse().getId(), e.getCourse().getName(), e.getCourse().getTerm(), e.getCourse().getInstructor())) // YENİ
+                .map(e -> new CourseDTO(e.getCourse().getId(), e.getCourse().getName(), e.getCourse().getTerm(), e.getCourse().getInstructor()))
                 .collect(Collectors.toList());
     }
 
-    // --- YENİ EKLENDİ: Toplu Log Silme İşlemi ---
-    // --- GÜNCELLENDİ: Toplu Log Silme İşlemi (Kurşun Geçirmez Versiyon) ---
     @DeleteMapping("/logs")
     public ResponseEntity<?> deleteLogs(@RequestParam String ids) {
         try {
-            // "1,2,3" şeklinde gelen metni parçalayıp Long listesine çeviriyoruz
             List<Long> idList = java.util.Arrays.stream(ids.split(","))
                     .map(Long::parseLong)
                     .collect(Collectors.toList());
@@ -301,6 +233,7 @@ public class ApiController {
             return ResponseEntity.badRequest().body("{\"error\": \"Failed to delete logs.\"}");
         }
     }
+
     @GetMapping("/ip-blocks")
     public List<IpBlock> getAllIpBlocks() {
         return ipBlockRepository.findAll();
