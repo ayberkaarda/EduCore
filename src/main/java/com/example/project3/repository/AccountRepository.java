@@ -16,7 +16,7 @@ import java.util.List;
 public interface AccountRepository extends JpaRepository<Account, Long> {
     java.util.Optional<Account> findByUsername(String username);
 
-    // Aktif ve silinenleri isDeleted parametresine göre filtreleyen ana arama metodu
+    // Hem aktif (isDeleted = 0) hem silinen (isDeleted = 1) öğrencileri getiren güncel metot
     @Query("SELECT a FROM Account a WHERE a.role = :role AND a.deleted = :isDeleted AND " +
             "(LOWER(a.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "LOWER(a.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
