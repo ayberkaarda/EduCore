@@ -71,11 +71,18 @@ public class ApiController {
     public org.springframework.data.domain.Page<AccountDTO> searchStudents(
             @RequestParam(defaultValue = "") String search,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "firstName") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction
     ) {
-        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        // Frontend'den gelen ASC/DESC yönünü algıla
+        org.springframework.data.domain.Sort.Direction sortDirection =
+                direction.equalsIgnoreCase("desc") ? org.springframework.data.domain.Sort.Direction.DESC : org.springframework.data.domain.Sort.Direction.ASC;
+
+        // Sayfalama nesnesine veritabanı sıralama (Sort) kuralını ekle
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by(sortDirection, sortBy));
+
         return accountRepository.searchAccountsByRole(Role.USER, search, pageable)
-                // BURAYA a.getIpAddress() EKLENDİ
                 .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole(), a.getIpAddress()));
     }
     // --- 1. Sadece silinmemiş (deleted = 0) öğrencileri veritabanı seviyesinde sıralı listeleme ---
@@ -161,7 +168,13 @@ public class ApiController {
 
     @DeleteMapping("/accounts/{id}")
     public ResponseEntity<?> deleteAccount(@PathVariable Long id) {
-        accountRepository.deleteById(id);
+        Account account = accountRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Account not found"));
+
+        // FİZİKSEL SİLME İPTAL EDİLDİ - SOFT DELETE EKLENDİ
+        account.setDeleted(1);
+        accountRepository.save(account);
+
         return ResponseEntity.ok("{\"message\": \"Deleted successfully.\"}");
     }
 
