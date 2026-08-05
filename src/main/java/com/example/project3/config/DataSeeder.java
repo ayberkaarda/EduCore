@@ -29,9 +29,10 @@ public class DataSeeder {
 
             if (accountRepo.count() == 0) {
                 accountRepo.saveAll(List.of(
-                        Account.builder().username("admin").password(passwordEncoder.encode("1234")).firstName("Admin").lastName("Bey").studentNumber("1111").role(Role.ADMIN).build(),
-                        Account.builder().username("ayberk").password(passwordEncoder.encode("1234")).firstName("Ayberk").lastName("Arda").studentNumber("2400006446").role(Role.USER).build(),
-                        Account.builder().username("ali").password(passwordEncoder.encode("1234")).firstName("Ali").lastName("Yilmaz").studentNumber("2401002").role(Role.USER).build()
+                        // HER BİRİNE .deleted(0) EKLENDİ
+                        Account.builder().username("admin").password(passwordEncoder.encode("1234")).firstName("Admin").lastName("Bey").studentNumber("1111").role(Role.ADMIN).deleted(0).build(),
+                        Account.builder().username("ayberk").password(passwordEncoder.encode("1234")).firstName("Ayberk").lastName("Arda").studentNumber("2400006446").role(Role.USER).deleted(0).build(),
+                        Account.builder().username("ali").password(passwordEncoder.encode("1234")).firstName("Ali").lastName("Yilmaz").studentNumber("2401002").role(Role.USER).deleted(0).build()
                 ));
             }
         };

@@ -83,7 +83,7 @@ public class ApiController {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by(sortDirection, sortBy));
 
         return accountRepository.searchAccountsByRole(Role.USER, search, pageable)
-                .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole(), a.getIpAddress()));
+                .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole(), a.getIpAddress(),a.getDeleted()));
     }
     // --- 1. Sadece silinmemiş (deleted = 0) öğrencileri veritabanı seviyesinde sıralı listeleme ---
     @GetMapping("/students")
@@ -140,7 +140,7 @@ public class ApiController {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         return accountRepository.searchAllAccounts(search, pageable)
                 // BURAYA a.getIpAddress() EKLENDİ
-                .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole(), a.getIpAddress()));
+                .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole(), a.getIpAddress(),a.getDeleted()));
     }
     @PutMapping("/accounts/{id}/role")
     public ResponseEntity<?> updateRole(@PathVariable Long id, @RequestBody java.util.Map<String, String> payload) {
