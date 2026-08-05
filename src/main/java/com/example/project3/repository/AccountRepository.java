@@ -16,21 +16,20 @@ import java.util.List;
 public interface AccountRepository extends JpaRepository<Account, Long> {
     java.util.Optional<Account> findByUsername(String username);
 
-    // DÜZELTİLDİ: a.deleted = 0 şartı eklendi
-    @Query("SELECT a FROM Account a WHERE a.role = :role AND a.deleted = 0 AND " +
+    // Aktif ve silinenleri isDeleted parametresine göre filtreleyen ana arama metodu
+    @Query("SELECT a FROM Account a WHERE a.role = :role AND a.deleted = :isDeleted AND " +
             "(LOWER(a.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "LOWER(a.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "LOWER(COALESCE(a.studentNumber, '')) LIKE LOWER(CONCAT('%', :search, '%')))")
-    Page<Account> searchAccountsByRole(@Param("role") Role role, @Param("search") String search, Pageable pageable);
+    Page<Account> searchAccountsByRoleAndDeleted(@Param("role") Role role, @Param("search") String search, @Param("isDeleted") int isDeleted, Pageable pageable);
 
     java.util.Optional<Account> findByStudentNumber(String studentNumber);
     java.util.Optional<Account> findByIpAddress(String ipAddress);
 
-    // DÜZELTİLDİ: a.deleted = 0 şartı ve gerekli parantezleme eklendi
-    @Query("SELECT a FROM Account a WHERE a.deleted = 0 AND (" +
+    @Query("SELECT a FROM Account a WHERE " +
             "LOWER(a.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "LOWER(a.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-            "LOWER(COALESCE(a.studentNumber, '')) LIKE LOWER(CONCAT('%', :search, '%')))")
+            "LOWER(COALESCE(a.studentNumber, '')) LIKE LOWER(CONCAT('%', :search, '%'))")
     Page<Account> searchAllAccounts(@Param("search") String search, Pageable pageable);
 
     Page<Account> findByDeletedAndFirstNameContainingIgnoreCaseOrDeletedAndLastNameContainingIgnoreCase(

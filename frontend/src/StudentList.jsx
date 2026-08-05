@@ -17,11 +17,9 @@ export default function StudentList({ appMode }) {
     const [ipInputMode, setIpInputMode] = useState('manual');
     const [page, setPage] = useState(0)
     const [totalPages, setTotalPages] = useState(1)
-
-    // Backend sıralaması için yön state'i (asc / desc)
     const [sortDirection, setSortDirection] = useState('asc')
 
-    // YENİ: Silinenleri gösterme durumu
+    // Silinenleri göstermek için yeni state
     const [showDeleted, setShowDeleted] = useState(false);
 
     const pageSize = 8
@@ -37,7 +35,6 @@ export default function StudentList({ appMode }) {
 
     useEffect(() => { setPage(0) }, [debouncedSearchTerm])
 
-    // YENİ: showDeleted state'i de dependency listesine eklendi
     useEffect(() => {
         fetchStudents(debouncedSearchTerm, page, sortDirection, showDeleted)
     }, [debouncedSearchTerm, page, sortDirection, showDeleted])
@@ -57,11 +54,9 @@ export default function StudentList({ appMode }) {
         }
     }, [isEditModalOpen]);
 
-    // YENİ: isDeleted parametresi eklendi
     const fetchStudents = async (search, currentPage, direction, isDeletedView) => {
         setIsLoading(true)
         try {
-            // isDeleted parametresi 0 (Aktif) veya 1 (Silinenler) olarak backend'e gönderiliyor
             const response = await axios.get(`${API_BASE}/accounts/students?search=${search}&page=${currentPage}&size=${pageSize}&direction=${direction}&isDeleted=${isDeletedView ? 1 : 0}`)
             setStudents(response.data.content)
             setTotalPages(response.data.totalPages)
@@ -140,14 +135,13 @@ export default function StudentList({ appMode }) {
                     <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.5rem', borderRadius: '0.5rem', border: '1px solid #e5e7eb', outline: 'none', boxSizing: 'border-box' }} />
                 </div>
 
-                {/* YENİ: Silinenler Butonu eklendi */}
                 <div style={{ display: 'flex', gap: '10px' }}>
                     {isAdmin && (
                         <button
                             className="btn-secondary"
                             onClick={() => {
                                 setShowDeleted(!showDeleted);
-                                setPage(0); // Sekme değişince 1. sayfaya dön
+                                setPage(0);
                             }}
                             style={{
                                 backgroundColor: showDeleted ? '#d1d5db' : '#fee2e2',
@@ -200,7 +194,6 @@ export default function StudentList({ appMode }) {
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                                     <div style={{ backgroundColor: '#f3f4f6', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={18} color="#4f46e5"/></div>
                                                     {student.firstName} {student.lastName}
-                                                    {/* YENİ: Silindi İbaresi eklendi */}
                                                     {student.deleted === 1 && (
                                                         <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '0.75rem', padding: '2px 6px', backgroundColor: '#fee2e2', borderRadius: '4px' }}>
                                                             (Silindi)
@@ -221,7 +214,6 @@ export default function StudentList({ appMode }) {
                                                         Courses <ChevronRight size={16} />
                                                     </button>
 
-                                                    {/* YENİ: Eğer öğrenci silinmemişse (deleted === 0) Düzenle ve Sil butonunu göster */}
                                                     {isAdmin && student.deleted !== 1 && (
                                                         <>
                                                             <button className="btn-secondary" onClick={() => openEditModal(student)} style={{ padding: '0.4rem', backgroundColor: '#fef3c7', color: '#b45309', border: 'none' }} title="Edit"><Edit size={16} /></button>
