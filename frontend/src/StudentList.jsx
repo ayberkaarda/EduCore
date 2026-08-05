@@ -21,6 +21,9 @@ export default function StudentList({ appMode }) {
     // Backend sıralaması için yön state'i (asc / desc)
     const [sortDirection, setSortDirection] = useState('asc')
 
+    // YENİ: Silinenleri gösterme durumu
+    const [showDeleted, setShowDeleted] = useState(false);
+
     const pageSize = 8
 
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -34,10 +37,10 @@ export default function StudentList({ appMode }) {
 
     useEffect(() => { setPage(0) }, [debouncedSearchTerm])
 
-    // Arama, sayfa veya sıralama yönü değiştiğinde backend'den veriyi yeniden çek
+    // YENİ: showDeleted state'i de dependency listesine eklendi
     useEffect(() => {
-        fetchStudents(debouncedSearchTerm, page, sortDirection)
-    }, [debouncedSearchTerm, page, sortDirection])
+        fetchStudents(debouncedSearchTerm, page, sortDirection, showDeleted)
+    }, [debouncedSearchTerm, page, sortDirection, showDeleted])
 
     useEffect(() => {
         if (isEditModalOpen) {
@@ -54,11 +57,12 @@ export default function StudentList({ appMode }) {
         }
     }, [isEditModalOpen]);
 
-    // Backend çağrısına sortDirection parametresi eklendi
-    const fetchStudents = async (search, currentPage, direction) => {
+    // YENİ: isDeleted parametresi eklendi
+    const fetchStudents = async (search, currentPage, direction, isDeletedView) => {
         setIsLoading(true)
         try {
-            const response = await axios.get(`${API_BASE}/accounts/students?search=${search}&page=${currentPage}&size=${pageSize}&direction=${direction}`)
+            // isDeleted parametresi 0 (Aktif) veya 1 (Silinenler) olarak backend'e gönderiliyor
+            const response = await axios.get(`${API_BASE}/accounts/students?search=${search}&page=${currentPage}&size=${pageSize}&direction=${direction}&isDeleted=${isDeletedView ? 1 : 0}`)
             setStudents(response.data.content)
             setTotalPages(response.data.totalPages)
         } catch (error) {
@@ -75,9 +79,9 @@ export default function StudentList({ appMode }) {
             toast.success('Student successfully added!')
             setIsModalOpen(false)
             setNewStudent({ firstName: '', lastName: '', studentNumber: '' })
-            fetchStudents(debouncedSearchTerm, page, sortDirection)
+            fetchStudents(debouncedSearchTerm, page, sortDirection, showDeleted)
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Error occurred.')
+            toast.error(error.response?.data?.error || error.response?.data?.message || 'Error occurred.')
         }
     }
 
@@ -86,7 +90,7 @@ export default function StudentList({ appMode }) {
         try {
             await axios.delete(`${API_BASE}/accounts/${id}`)
             toast.success('Student deleted successfully!')
-            fetchStudents(debouncedSearchTerm, page, sortDirection)
+            fetchStudents(debouncedSearchTerm, page, sortDirection, showDeleted)
         } catch (error) { toast.error('Failed to delete student.') }
     }
 
@@ -112,13 +116,12 @@ export default function StudentList({ appMode }) {
             })
             toast.success('Student updated successfully!')
             setIsEditModalOpen(false)
-            fetchStudents(debouncedSearchTerm, page, sortDirection)
+            fetchStudents(debouncedSearchTerm, page, sortDirection, showDeleted)
         } catch (error) {
             toast.error(error.response?.data?.error || 'Failed to update student.')
         }
     }
 
-    // Sıralama yönünü değiştiren tetikleyici
     const toggleSorting = () => {
         setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'))
     }
@@ -137,23 +140,45 @@ export default function StudentList({ appMode }) {
                     <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.5rem', borderRadius: '0.5rem', border: '1px solid #e5e7eb', outline: 'none', boxSizing: 'border-box' }} />
                 </div>
 
-                {isAdmin && (
-                    <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
-                        <Plus size={18} /> New Student
-                    </button>
-                )}
+                {/* YENİ: Silinenler Butonu eklendi */}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    {isAdmin && (
+                        <button
+                            className="btn-secondary"
+                            onClick={() => {
+                                setShowDeleted(!showDeleted);
+                                setPage(0); // Sekme değişince 1. sayfaya dön
+                            }}
+                            style={{
+                                backgroundColor: showDeleted ? '#d1d5db' : '#fee2e2',
+                                color: showDeleted ? '#374151' : '#b91c1c',
+                                border: 'none',
+                                padding: '0.5rem 1rem',
+                                borderRadius: '0.5rem',
+                                cursor: 'pointer',
+                                fontWeight: '500'
+                            }}
+                        >
+                            {showDeleted ? "Aktif Öğrenciler" : "Silinenler"}
+                        </button>
+                    )}
+                    {isAdmin && (
+                        <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
+                            <Plus size={18} /> New Student
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="table-responsive" style={{marginTop: '1.5rem'}}>
                 {isLoading ? ( <div className="empty-state"><Loader2 className="spin text-gray" size={32} /></div> )
-                    : students.length === 0 ? ( <div className="empty-state"><p>No students found.</p></div> )
+                    : students.length === 0 ? ( <div className="empty-state"><p>{showDeleted ? "No deleted students found." : "No students found."}</p></div> )
                         : (
                             <>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                                     <thead>
                                     <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
                                         <th style={{ padding: '1rem', color: '#6b7280' }}>ID</th>
-                                        {/* Backend Sıralama Butonu / Başlığı */}
                                         <th
                                             onClick={toggleSorting}
                                             style={{ padding: '1rem', color: '#6b7280', cursor: 'pointer', userSelect: 'none' }}
@@ -169,12 +194,18 @@ export default function StudentList({ appMode }) {
                                     </thead>
                                     <tbody>
                                     {students.map((student) => (
-                                        <tr key={student.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                                        <tr key={student.id} style={{ borderBottom: '1px solid #e5e7eb', opacity: student.deleted === 1 ? 0.7 : 1 }}>
                                             <td style={{ padding: '1rem', fontWeight: '500' }}>#{student.studentNumber || 'N/A'}</td>
                                             <td style={{ padding: '1rem' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                                     <div style={{ backgroundColor: '#f3f4f6', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={18} color="#4f46e5"/></div>
                                                     {student.firstName} {student.lastName}
+                                                    {/* YENİ: Silindi İbaresi eklendi */}
+                                                    {student.deleted === 1 && (
+                                                        <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '0.75rem', padding: '2px 6px', backgroundColor: '#fee2e2', borderRadius: '4px' }}>
+                                                            (Silindi)
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td style={{ padding: '1rem' }}>
@@ -190,7 +221,8 @@ export default function StudentList({ appMode }) {
                                                         Courses <ChevronRight size={16} />
                                                     </button>
 
-                                                    {isAdmin && (
+                                                    {/* YENİ: Eğer öğrenci silinmemişse (deleted === 0) Düzenle ve Sil butonunu göster */}
+                                                    {isAdmin && student.deleted !== 1 && (
                                                         <>
                                                             <button className="btn-secondary" onClick={() => openEditModal(student)} style={{ padding: '0.4rem', backgroundColor: '#fef3c7', color: '#b45309', border: 'none' }} title="Edit"><Edit size={16} /></button>
                                                             <button className="btn-secondary" onClick={() => handleDelete(student.id)} style={{ padding: '0.4rem', backgroundColor: '#fee2e2', color: '#b91c1c', border: 'none' }} title="Delete"><Trash2 size={16} /></button>
@@ -212,7 +244,7 @@ export default function StudentList({ appMode }) {
                         )}
             </div>
 
-            {/* Modal bileşenleri aynen korunur */}
+            {/* Modal Components */}
             {isModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">
