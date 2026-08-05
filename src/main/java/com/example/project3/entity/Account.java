@@ -29,17 +29,27 @@ public class Account implements UserDetails {
     private String firstName;
     private String lastName;
 
-    @Column(unique = true) // DÜZELTME: Çift yazılan değişken teke indirildi
+    @Column(unique = true)
     private String studentNumber;
 
     @Enumerated(EnumType.STRING)
     private Role role;
 
-    @Column(unique = true) // FARKLI ÖĞRENCİLER AYNI IP'Yİ ALAMAZ
+    @Column(unique = true)
     private String ipAddress;
 
-    @Column(name = "deleted", nullable = false, columnDefinition = "int default 0")
+    // ÇÖZÜM BURADA: Builder kullanıldığında 0 değerinin ezilmemesi için eklendi
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "int default 0")
     private Integer deleted = 0;
+
+    // Veritabanına kaydetmeden hemen önce son güvenlik kontrolü
+    @PrePersist
+    protected void onCreate() {
+        if (this.deleted == null) {
+            this.deleted = 0;
+        }
+    }
 
     public Integer getDeleted() {
         return deleted;
