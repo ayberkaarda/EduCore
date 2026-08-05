@@ -73,7 +73,8 @@ public class ApiController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "firstName") String sortBy,
-            @RequestParam(defaultValue = "asc") String direction
+            @RequestParam(defaultValue = "asc") String direction,
+            @RequestParam(defaultValue = "0") int isDeleted // 0: Aktifler, 1: Silinenler
     ) {
         // Frontend'den gelen ASC/DESC yönünü algıla
         org.springframework.data.domain.Sort.Direction sortDirection =
@@ -82,8 +83,9 @@ public class ApiController {
         // Sayfalama nesnesine veritabanı sıralama (Sort) kuralını ekle
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by(sortDirection, sortBy));
 
-        return accountRepository.searchAccountsByRole(Role.USER, search, pageable)
-                .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole(), a.getIpAddress(),a.getDeleted()));
+        // DÜZELTME: Doğru repository metodu (searchAccountsByRoleAndDeleted) çağrılıyor
+        return accountRepository.searchAccountsByRoleAndDeleted(Role.USER, search, isDeleted, pageable)
+                .map(a -> new AccountDTO(a.getId(), a.getFirstName(), a.getLastName(), a.getStudentNumber(), a.getRole(), a.getIpAddress(), a.getDeleted()));
     }
     // --- 1. Sadece silinmemiş (deleted = 0) öğrencileri veritabanı seviyesinde sıralı listeleme ---
     @GetMapping("/students")
