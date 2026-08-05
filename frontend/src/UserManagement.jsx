@@ -4,7 +4,7 @@ import { Search, ShieldAlert, Loader2 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import { useDebounce } from './hooks/useDebounce'
 
-const API_BASE = 'http://localhost:8080/api/v1'
+const API_BASE = 'http://localhost:8081/api/v1'
 
 export default function UserManagement() {
     const [users, setUsers] = useState([])
@@ -88,18 +88,18 @@ export default function UserManagement() {
                                 <td style={{ padding: '1rem', fontWeight: '500' }}>{user.firstName} {user.lastName}</td>
                                 <td style={{ padding: '1rem', color: '#6b7280' }}>{user.studentNumber || 'N/A'}</td>
                                 <td style={{ padding: '1rem' }}>
-                    <span className={`badge ${user.role === 'ACADEMICIAN' ? 'success' : ''}`} style={{ backgroundColor: user.role === 'ACADEMICIAN' ? '#fee2e2' : '#d1fae5', color: user.role === 'ACADEMICIAN' ? '#991b1b' : '#065f46' }}>
-                      {user.role === 'ACADEMICIAN' ? 'Academician' : 'Student'}
-                    </span>
+                                    <span className={`badge ${user.role === 'ADMIN' ? 'success' : ''}`} style={{ backgroundColor: user.role === 'ADMIN' ? '#fee2e2' : '#d1fae5', color: user.role === 'ADMIN' ? '#991b1b' : '#065f46' }}>
+                                      {user.role}
+                                    </span>
                                 </td>
                                 <td style={{ padding: '1rem', textAlign: 'right' }}>
                                     <select
-                                        value={R.role}
+                                        value={user.role} // <--- BURASI DÜZELTİLDİ (R.role yerine user.role yapıldı)
                                         onChange={(e) => handleRoleChange(user.id, e.target.value)}
                                         style={{ padding: '0.4rem', borderRadius: '0.375rem', border: '1px solid #d1d5db', outline: 'none', cursor: 'pointer' }}
                                     >
-                                        <option value="STUDENT"> Student</option>
-                                        <option value="ACADEMICIAN"> Academician</option>
+                                        <option value="USER">User</option>
+                                        <option value="ADMIN">Admin</option>
                                     </select>
                                 </td>
                             </tr>
