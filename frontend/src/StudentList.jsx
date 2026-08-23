@@ -153,7 +153,7 @@ export default function StudentList({ appMode }) {
                                 fontWeight: '500'
                             }}
                         >
-                            {showDeleted ? "Aktif Öğrenciler" : "Silinenler"}
+                            {showDeleted ? "Students" : "Deleted Students"}
                         </button>
                     )}
                     {isAdmin && (

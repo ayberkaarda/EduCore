@@ -335,3 +335,52 @@ select {
   .user-profile { display: none; }
   .content-area { padding: 1rem; }
 }
+.weather-widget-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 6px 12px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.weather-icon {
+  font-size: 20px;
+}
+
+.weather-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.weather-city-select {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+}
+
+.weather-city-select option {
+  background: #2d3748;
+  color: #fff;
+}
+
+.weather-details {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.weather-temp {
+  font-weight: 700;
+}

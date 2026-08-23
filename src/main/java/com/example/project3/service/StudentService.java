@@ -24,11 +24,10 @@ public class StudentService {
         return accountRepository.findByDeleted(0, sort);
     }
 
-    // Soft Delete İşlemi (Account entity üzerinden)
     public void softDeleteStudent(Long id) {
         Account account = accountRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Kayıt bulunamadı"));
-        account.setDeleted(1); // Silindi olarak işaretle
+        account.setDeleted(1);
         accountRepository.save(account);
     }
 

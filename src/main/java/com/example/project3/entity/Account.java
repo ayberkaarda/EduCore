@@ -38,7 +38,7 @@ public class Account implements UserDetails {
     @Column(unique = true)
     private String ipAddress;
 
-    // ÇÖZÜM BURADA: Builder kullanıldığında 0 değerinin ezilmemesi için eklendi
+    // Builder kullanıldığında 0 değerinin ezilmemesi için eklendi
     @Builder.Default
     @Column(nullable = false, columnDefinition = "int default 0")
     private Integer deleted = 0;
