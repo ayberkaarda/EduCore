@@ -38,7 +38,7 @@ public class SecurityConfig {
                         // 2. DÜZELTME: Spring Boot'un kendi hata mekanizmasına izin ver (404'lerin 403 olmasını engeller)
                         .requestMatchers("/error").permitAll()
 
-                        .requestMatchers("/api/auth/**", "/login", "/ws/**", "/api/v1/auth/**").permitAll()
+                        .requestMatchers("/api/auth/**", "/login", "/ws/**", "/api/v1/auth/**","/api/weather").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

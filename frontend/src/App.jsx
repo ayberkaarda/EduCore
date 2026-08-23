@@ -9,6 +9,7 @@ import JobLogs from './JobLogs' // DÜZELTME: JobLogs sayfası eklendi
 import Login from './Login'
 import Home from './Home'
 import IpManagement from './IpManagement'
+import WeatherWidget from './WeatherWidget'
 import './App.css'
 
 axios.interceptors.request.use(config => {
@@ -107,7 +108,12 @@ const AppLayout = ({ authData, setAuthData, children }) => {
           </button>
         </nav>
 
-        <main className="content-area">
+        <main className="content-area" style={{ position: 'relative', paddingTop: '60px' }}>
+
+          <div style={{ position: 'absolute', top: '16px', right: '24px', zIndex: 50 }}>
+            <WeatherWidget />
+          </div>
+
           {children}
         </main>
       </div>
