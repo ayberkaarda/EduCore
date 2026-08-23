@@ -1,6 +1,6 @@
 package com.example.project3.service;
 
-import com.example.project3.client.WeatherClient;
+import com.example.project3.WeatherClient;
 import com.example.project3.dto.CityWeatherDTO;
 import com.example.project3.dto.ExternalWeatherResponse;
 import lombok.RequiredArgsConstructor;

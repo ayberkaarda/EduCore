@@ -5,9 +5,10 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@FeignClient(name = "weatherClient", url = "https://api.open-meteo.com/v1")
+@FeignClient(name = "weatherClient", url = "https://api.open-meteo.com")
 public interface WeatherClient {
-    @GetMapping("/forecast")
+
+    @GetMapping("/v1/forecast")
     ExternalWeatherResponse getWeather(
             @RequestParam("latitude") double latitude,
             @RequestParam("longitude") double longitude,

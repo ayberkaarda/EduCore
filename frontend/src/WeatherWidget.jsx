@@ -1,38 +1,36 @@
 import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 
 const WeatherWidget = () => {
     const [weatherData, setWeatherData] = useState([]);
     const [selectedCityIndex, setSelectedCityIndex] = useState(0);
-    const [loading, setLoading] = useState(true);
+    const [status, setStatus] = useState('Hava Durumu Yükleniyor...');
 
     useEffect(() => {
         const fetchWeather = async () => {
             try {
-                const token = localStorage.getItem('token');
-                const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+                // Axios kullandığımız için token App.jsx'teki interceptor'dan otomatik eklenecek
+                const response = await axios.get('http://localhost:8080/api/weather');
 
-                const response = await fetch('http://localhost:8080/api/weather', { headers });
-                if (response.ok) {
-                    const data = await response.json();
-                    setWeatherData(data);
+                if (response.data && response.data.length > 0) {
+                    setWeatherData(response.data);
+                    setStatus('success');
+                } else {
+                    setStatus('Hava durumu verisi bulunamadı.');
                 }
             } catch (error) {
-                console.error('Hava durumu verisi alınamadı:', error);
-            } finally {
-                setLoading(false);
+                setStatus(`API Hatası: ${error.response?.status || error.message}`);
             }
         };
 
         fetchWeather();
-        // 10 dakikada bir otomatik güncelleme
-        const interval = setInterval(fetchWeather, 10 * 60 * 1000);
-        return () => clearInterval(interval);
     }, []);
 
-    if (loading || weatherData.length === 0) {
+    // Yükleniyor veya Hata durumunda ekranda mesajı gösterir
+    if (status !== 'success') {
         return (
-            <div className="weather-widget-loading">
-                <span>Hava Durumu yükleniyor...</span>
+            <div style={{ color: '#fff', fontSize: '13px', fontWeight: '500' }}>
+                {status}
             </div>
         );
     }
@@ -41,35 +39,47 @@ const WeatherWidget = () => {
 
     const getWeatherIcon = (description) => {
         if (!description) return '🌤️';
-        if (description.includes('Açık')) return '☀️';
-        if (description.includes('Bulutlu')) return '⛅';
-        if (description.includes('Yağmur')) return '🌧️';
-        if (description.includes('Kar')) return '❄️';
-        if (description.includes('Fırtına')) return '⛈️';
-        if (description.includes('Sis')) return '🌫️';
+        const desc = description.toLowerCase();
+        if (desc.includes('açık')) return '☀️';
+        if (desc.includes('bulut')) return '☁️';
+        if (desc.includes('yağmur')) return '🌧️';
+        if (desc.includes('kar')) return '❄️';
+        if (desc.includes('fırtına')) return '⛈️';
+        if (desc.includes('sis')) return '🌫️';
         return '🌤️';
     };
 
     return (
-        <div className="weather-widget-container">
-            <span className="weather-icon">{getWeatherIcon(currentCity.description)}</span>
-            <div className="weather-info">
-                <div className="weather-header">
-                    <select
-                        value={selectedCityIndex}
-                        onChange={(e) => setSelectedCityIndex(Number(e.target.value))}
-                        className="weather-city-select"
-                    >
-                        {weatherData.map((item, idx) => (
-                            <option key={item.city} value={idx}>
-                                {item.city}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-                <div className="weather-details">
-                    <span className="weather-temp">{currentCity.temperature != null ? `${currentCity.temperature}°C` : '--'}</span>
-                    <span className="weather-desc">{currentCity.description}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#fff' }}>
+            <div style={{ fontSize: '28px' }}>
+                {getWeatherIcon(currentCity.description)}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <select
+                    value={selectedCityIndex}
+                    onChange={(e) => setSelectedCityIndex(Number(e.target.value))}
+                    style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#fff',
+                        fontWeight: 'bold',
+                        fontSize: '14px',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        padding: 0,
+                    }}
+                >
+                    {weatherData.map((item, idx) => (
+                        <option key={item.city} value={idx} style={{ color: '#000' }}>
+                            {item.city}
+                        </option>
+                    ))}
+                </select>
+                <div style={{ display: 'flex', gap: '8px', fontSize: '13px', marginTop: '2px' }}>
+                    <span style={{ fontWeight: 'bold', color: '#fca5a5' }}>
+                        {currentCity.temperature != null ? `${currentCity.temperature}°C` : '--'}
+                    </span>
+                    <span style={{ color: '#d1d5db' }}>{currentCity.description}</span>
                 </div>
             </div>
         </div>
