@@ -103,24 +103,20 @@ const AppLayout = ({ authData, setAuthData, children }) => {
           </button>
         </nav>
 
-        <main className="content-area" style={{ display: 'flex', flexDirection: 'column' }}>
+        <main className="content-area" style={{ position: 'relative' }}>
 
-          {/* NET VE GÖRÜNÜR WIDGET ALANI */}
+          {/* SAĞ ÜSTTE YÜZEN ŞIK WIDGET */}
           <div style={{
-            backgroundColor: '#111827',
-            padding: '12px 24px',
-            borderRadius: '12px',
-            marginBottom: '24px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            position: 'absolute',
+            top: '24px',
+            right: '32px',
+            zIndex: 9999
           }}>
-            <span style={{ color: '#9ca3af', fontSize: '14px', fontWeight: '500' }}>Canlı Hava Durumu</span>
             <WeatherWidget />
           </div>
 
-          <div style={{ flex: 1 }}>
+          {/* Widget'ın altındaki içeriğin üstte ezilmemesi için boşluk */}
+          <div style={{ marginTop: '100px' }}>
             {children}
           </div>
 
