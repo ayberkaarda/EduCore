@@ -26,3 +26,6 @@ Severity: **C** critical · **H** high · **M** medium · **L** low.
 | B-017 | 2026-10-01 | P2 | `src/main/java/com/educore/service/AccountCredentialService.java` | M | `assignTemporaryPassword` sets the password hash and `mustChangePassword` flag but does not end existing sessions; when the ADMIN reset endpoint (B-016) is built, lock the account, use `AccountLocks.compareAndSetPassword` and revoke all refresh tokens in one transaction. |
 | B-018 | 2026-10-01 | P2 | `src/main/java/com/educore/auth/LoginAttempt.java`, `src/main/java/com/educore/auth/SecurityEvent.java` | L | Add retention/purge for `login_attempt` and `security_event` in P7. |
 | B-019 | 2026-10-01 | P2 | `frontend/src` | M | Add a real change-password screen for accounts with `mustChangePassword`; the frontend currently shows only a notice (P8). |
+
+| B-020 | 2026-10-01 | P3 | `src/main/java/com/educore/account` | L | No route restores a soft-deleted account; add an ADMIN restore operation in P7. |
+| B-021 | 2026-10-01 | P3 | `src/main/java/com/educore/course` | L | Deleting a course that still has enrollments returns HTTP 409 with the legacy error body; migrate this case to the standard Problem Details response in P4. |
