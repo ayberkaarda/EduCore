@@ -10,9 +10,10 @@ RUN mvn clean package -DskipTests
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 # Derlenen jar dosyasını kopyala
-COPY --from=build /app/target/*.jar app.jar
+COPY --from=build /app/target/educore-*.jar app.jar
 
-# Uygulamanın çalışacağı port
+# Uygulamanın çalışacağı port (API). The Actuator management port 9090 is internal only and
+# deliberately not exposed; docker-compose does not publish it either.
 EXPOSE 8080
 
 # Uygulamayı başlat
