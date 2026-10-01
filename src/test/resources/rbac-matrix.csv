@@ -1,0 +1,37 @@
+# Machine-readable RBAC matrix (application port). docs/security/RBAC_MATRIX.md mirrors every row.
+# kind: ENDPOINT = a mapped handler (method + exact mapping pattern); RESERVED = URL rule without handler yet;
+# FALLBACK = sample of an unmapped path. Status cells: HTTP status of a valid request, NA = cannot address
+# another account, OPEN = permitted by the URL rule (no handler to call).
+id,kind,method,path,admin,user_self,user_other,anonymous
+01,ENDPOINT,POST,/api/v1/auth/login,200,200,200,200
+02,ENDPOINT,POST,/api/v1/auth/refresh,200,200,200,200
+03,ENDPOINT,POST,/api/v1/auth/logout,204,204,204,204
+04,ENDPOINT,GET,/api/v1/auth/me,200,200,NA,401
+05,ENDPOINT,POST,/api/v1/auth/password,200,200,NA,401
+06,ENDPOINT,GET,/api/v1/me,200,200,NA,401
+07,ENDPOINT,PUT,/api/v1/me,200,200,NA,401
+08,ENDPOINT,GET,/api/v1/me/enrollments,200,200,NA,401
+09,ENDPOINT,POST,/api/v1/me/enrollments,201,201,NA,401
+10,ENDPOINT,DELETE,/api/v1/me/enrollments/{courseId},204,204,NA,401
+11,ENDPOINT,GET,/api/v1/courses,200,200,200,401
+12,ENDPOINT,GET,/api/v1/weather,200,200,200,401
+13,ENDPOINT,GET,/api/v1/admin/accounts,200,403,403,401
+14,ENDPOINT,GET,/api/v1/admin/accounts/students,200,403,403,401
+15,ENDPOINT,POST,/api/v1/admin/accounts/students,201,403,403,401
+16,ENDPOINT,PUT,/api/v1/admin/accounts/{accountId},200,403,403,401
+17,ENDPOINT,DELETE,/api/v1/admin/accounts/{accountId},204,403,403,401
+18,ENDPOINT,PUT,/api/v1/admin/accounts/{accountId}/role,200,403,403,401
+19,ENDPOINT,GET,/api/v1/admin/accounts/{accountId}/enrollments,200,403,403,401
+20,ENDPOINT,POST,/api/v1/admin/accounts/{accountId}/enrollments,201,403,403,401
+21,ENDPOINT,DELETE,/api/v1/admin/accounts/{accountId}/enrollments/{courseId},204,403,403,401
+22,ENDPOINT,POST,/api/v1/admin/courses,201,403,403,401
+23,ENDPOINT,PUT,/api/v1/admin/courses/{courseId},200,403,403,401
+24,ENDPOINT,DELETE,/api/v1/admin/courses/{courseId},204,403,403,401
+25,ENDPOINT,GET,/api/v1/admin/ip-rules,200,403,403,401
+26,ENDPOINT,POST,/api/v1/admin/ip-rules,201,403,403,401
+27,ENDPOINT,DELETE,/api/v1/admin/ip-rules/{ipRuleId},204,403,403,401
+28,ENDPOINT,GET,/api/v1/admin/job-logs,200,403,403,401
+29,ENDPOINT,DELETE,/api/v1/admin/job-logs,204,403,403,401
+30,ENDPOINT,GET,/api/v1/admin/security-events,200,403,403,401
+31,RESERVED,ANY,/api/v1/public/**,OPEN,OPEN,OPEN,OPEN
+32,FALLBACK,GET,/api/v1/accounts/students,404,404,404,401
