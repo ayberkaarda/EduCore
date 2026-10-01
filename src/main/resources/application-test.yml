@@ -1,0 +1,21 @@
+# Automated test profile. The PostgreSQL connection is provided by Testcontainers (@ServiceConnection).
+
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed/dev
+
+management:
+  server:
+    # Random free port; tests read it with @LocalManagementPort.
+    port: 0
+
+educore:
+  security:
+    jwt:
+      # TEST DATA ONLY: base64 of the ASCII text "educore-test-only-jwt-signing-secret-never-use-outside-tests".
+      secret: ZWR1Y29yZS10ZXN0LW9ubHktand0LXNpZ25pbmctc2VjcmV0LW5ldmVyLXVzZS1vdXRzaWRlLXRlc3Rz # gitleaks:allow
+  cors:
+    allowed-origins: http://localhost:3000
+  ingestion:
+    # Keep the CSV poller away from the repository's csv_uploads folder during tests.
+    base-dir: target/test-csv-uploads

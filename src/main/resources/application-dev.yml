@@ -1,0 +1,15 @@
+# Local development profile (default when SPRING_PROFILES_ACTIVE is unset).
+
+spring:
+  flyway:
+    # Synthetic demo data (db/seed/dev) is applied in dev and test only, never in prod.
+    locations: classpath:db/migration,classpath:db/seed/dev
+
+educore:
+  security:
+    refresh-token:
+      # Local development runs on plain HTTP; every other profile sends the refresh cookie with Secure.
+      cookie-secure: false
+  cors:
+    # The Vite dev server and the compose frontend are served from http://localhost:3000.
+    allowed-origins: ${EDUCORE_CORS_ALLOWED_ORIGINS:http://localhost:3000}
