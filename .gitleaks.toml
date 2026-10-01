@@ -1,0 +1,60 @@
+title = "EduCore gitleaks configuration"
+
+# Start from the upstream default rule set and add project-specific rules.
+[extend]
+useDefault = true
+
+# Spring datasource password written as a literal value (properties or YAML).
+# Any non-empty literal is reported; only pure env placeholders such as
+# ${EDUCORE_DB_PASSWORD} or ${EDUCORE_DB_PASSWORD:?required} are exempt.
+[[rules]]
+id = "educore-spring-datasource-password"
+description = "Literal Spring datasource password"
+regex = '''(?im)(?:spring\.datasource\.password|^[ \t]*password)[ \t]*[:=][ \t]*["']?([^\s"']+)'''
+secretGroup = 1
+path = '''(?i)\.(properties|ya?ml)$'''
+keywords = ["password"]
+
+[[rules.allowlists]]
+description = "Environment placeholder, not a literal"
+regexTarget = "secret"
+regexes = ['''^\$\{[A-Za-z_][A-Za-z0-9_.]*(?::[^}]*)?\}$''']
+
+# Postgres container password written as a literal value in compose files.
+[[rules]]
+id = "educore-postgres-container-password"
+description = "Literal POSTGRES_PASSWORD in a compose or env file"
+regex = '''(?i)POSTGRES_PASSWORD[ \t]*[:=][ \t]*["']?([^\s"']+)'''
+secretGroup = 1
+keywords = ["postgres_password"]
+
+[[rules.allowlists]]
+description = "Environment placeholder, not a literal"
+regexTarget = "secret"
+regexes = ['''^\$\{[A-Za-z_][A-Za-z0-9_.]*(?::[^}]*)?\}$''']
+
+# JWT signing key hardcoded in Java source as a hex or base64 string literal.
+[[rules]]
+id = "educore-hardcoded-jwt-key"
+description = "Hardcoded JWT signing key in Java source"
+regex = '''(?i)(?:secret_?key|signing_?key|jwt_?secret)\s*=\s*"([A-Za-z0-9+/=]{32,})"'''
+secretGroup = 1
+path = '''\.java$'''
+keywords = ["secret", "signing", "jwt"]
+
+[[allowlists]]
+description = "Generated, vendored and documentation-only paths"
+paths = [
+  '''(^|[\\/])node_modules[\\/]''',
+  '''(^|[\\/])target[\\/]''',
+  '''(^|[\\/])dist[\\/]''',
+  '''(^|[\\/])\.git[\\/]''',
+  '''(^|[\\/])package-lock\.json$''',
+  '''(^|[\\/])\.mvn[\\/]wrapper[\\/]''',
+]
+
+[[allowlists]]
+description = "Repo-root .env: local, git-ignored developer config, never committed. Only this exact path is skipped; .env.example and any other .env* file are still scanned."
+paths = [
+  '''^\.env$''',
+]

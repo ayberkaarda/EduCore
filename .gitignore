@@ -1,8 +1,36 @@
-HELP.md
+### Build output ###
 target/
-.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+dist/
+HELP.md
+.mvn/wrapper/maven-wrapper.jar
+
+### Node ###
+node_modules/
+
+### Environment and secrets ###
+.env
+.env.*
+!.env.example
+
+### Local databases and runtime data ###
+*.mv.db
+*.trace.db
+data/
+
+### Logs ###
+*.log
+
+### CSV ingestion folders: only samples and folder markers are tracked ###
+csv_uploads/**
+!csv_uploads/sample/
+!csv_uploads/sample/**
+!csv_uploads/*/
+!csv_uploads/*/.gitkeep
 
 ### STS ###
 .apt_generated
@@ -22,14 +50,12 @@ target/
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/
-/dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
 
 ### VS Code ###
 .vscode/
-data/educore_db.mv.db
-data/educore_db.trace.db
+
+### OS ###
+.DS_Store
+Thumbs.db
