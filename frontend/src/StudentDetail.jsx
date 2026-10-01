@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { api, apiError } from './api'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import toast, { Toaster } from 'react-hot-toast'
-import { ArrowLeft, CheckCircle2, PlusCircle, Book, Calendar } from 'lucide-react'
+import toast from 'react-hot-toast'
+import Toaster from './Toasts'
+import { ArrowLeft, PlusCircle, Calendar, Book } from 'lucide-react'
 
-const API_BASE = 'http://localhost:8081/api/v1'
+
 
 export default function StudentDetail() {
     const { id } = useParams()
@@ -14,31 +16,28 @@ export default function StudentDetail() {
     const [enrolledCourses, setEnrolledCourses] = useState([])
     const [isEnrolling, setIsEnrolling] = useState(false)
 
-    useEffect(() => {
-        fetchData()
-    }, [id])
-
-    const fetchData = async () => {
-        try {
-            const [coursesRes, enrolledRes] = await Promise.all([
-                axios.get(`${API_BASE}/courses`),
-                axios.get(`${API_BASE}/accounts/${id}/courses`)
-            ])
+    const fetchData = useCallback(() => Promise.all([
+        axios.get(api.courses),
+        axios.get(api.accountEnrollments(id))
+    ])
+        .then(([coursesRes, enrolledRes]) => {
             setAllCourses(coursesRes.data)
             setEnrolledCourses(enrolledRes.data)
-        } catch (error) {
-            toast.error('Failed to load course data.')
-        }
-    }
+        })
+        .catch((error) => toast.error(apiError(error, 'Failed to load course data.'))), [id])
+
+    useEffect(() => {
+        fetchData()
+    }, [fetchData])
 
     const handleEnroll = async (courseId) => {
         setIsEnrolling(true)
         try {
-            await axios.post(`${API_BASE}/enroll`, { accountId: id, courseId: courseId })
-            toast.success('Course successfully added!')
-            fetchData()
+            await axios.post(api.accountEnrollments(id), { courseId })
+            toast.success('Course added.')
+            await fetchData()
         } catch (error) {
-            toast.error(error.response?.data || 'Error occurred while adding the course.')
+            toast.error(apiError(error, 'Error occurred while adding the course.'))
         } finally {
             setIsEnrolling(false)
         }
@@ -48,18 +47,17 @@ export default function StudentDetail() {
         <div className="student-detail-wrapper">
             <Toaster />
             <button className="btn-secondary back-btn" onClick={() => navigate(-1)}>
-                <ArrowLeft size={18} /> Go Back
+                <ArrowLeft size={18} /> Back
             </button>
 
             <div className="detail-header">
-                <h2>Student Profile & Course Enrollment</h2>
-                <p className="text-gray">Student Number: #STU-{id}</p>
+                <h2>Student courses</h2>
+                <p className="text-gray">Record identifier: {id}</p>
             </div>
 
             <div className="course-grid">
                 <div className="card">
-                    <h3 className="section-title">
-                        <CheckCircle2 size={20} color="#10b981" /> Enrolled Courses
+                    <h3 className="section-title"> Enrolled courses
                     </h3>
                     <div className="course-list">
                         {enrolledCourses.length === 0 ? (
@@ -79,13 +77,13 @@ export default function StudentDetail() {
                 </div>
 
                 <div className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                        <h3 className="section-title" style={{ margin: 0 }}>
-                            <Book size={20} color="#4f46e5" /> Full Course Catalog
+                    <div className="split-row">
+                        <h3 className="section-title"> Course catalogue
                         </h3>
                     </div>
 
                     <div className="course-list">
+                        {allCourses.length === 0 && <div className="empty-state"><Book size={24}/><h4>No courses yet.</h4><p>Available courses will appear here.</p></div>}
                         {allCourses.map(course => {
                             const isAlreadyEnrolled = enrolledCourses.some(ec => ec.id === course.id)
 
@@ -101,7 +99,7 @@ export default function StudentDetail() {
                                         onClick={() => handleEnroll(course.id)}
                                         disabled={isAlreadyEnrolled || isEnrolling}
                                     >
-                                        {isAlreadyEnrolled ? 'Enrolled' : <><PlusCircle size={16} /> Enroll</>}
+                                        {isAlreadyEnrolled ? 'Enrolled' : <><PlusCircle size={16} /> Enrol</>}
                                     </button>
                                 </div>
                             )

@@ -1,16 +1,22 @@
+import { api, apiError } from './api'
 import { useState } from 'react'
 import axios from 'axios'
-import toast, { Toaster } from 'react-hot-toast'
-import { BookOpen } from 'lucide-react'
+import toast from 'react-hot-toast'
+import Toaster from './Toasts'
+import { Eye, EyeOff, CircleX } from 'lucide-react'
+import { FullLogo } from './Brand'
+import ThemeToggle from './ThemeToggle'
 
 export default function Login({ setAuthData }) {
+    const [showPassword, setShowPassword] = useState(false)
+    const [loginError, setLoginError] = useState('')
     const [credentials, setCredentials] = useState({ username: '', password: '' })
 
     const handleLogin = async (e) => {
         e.preventDefault()
         try {
-            const response = await axios.post('http://localhost:8081/api/v1/auth/login', credentials)
-            const { token, role, firstName } = response.data
+            const response = await axios.post(api.login, credentials, { withCredentials: true })
+            const { accessToken: token, user: { role, firstName, mustChangePassword } } = response.data
 
             // Token'ı tarayıcıya kaydet
             localStorage.setItem('token', token)
@@ -20,34 +26,16 @@ export default function Login({ setAuthData }) {
             // Tüm Axios isteklerine otomatik Bearer Token ekle
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
 
-            setAuthData({ token, role, name: firstName })
-            toast.success('Giriş başarılı!')
+            setAuthData({ token, role, name: firstName, mustChangePassword: Boolean(mustChangePassword) })
+            toast.success('Signed in.')
+            if (mustChangePassword) {
+                toast('You must change your password', { id: 'must-change-password', duration: Infinity })
+            }
         } catch (error) {
-            toast.error('Hatalı kullanıcı adı veya şifre!')
+            setLoginError(apiError(error, 'The username or password is incorrect.'))
+            toast.error(apiError(error, 'The username or password is incorrect.'))
         }
     }
 
-    return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
-            <Toaster />
-            <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
-                <BookOpen size={48} color="#4f46e5" style={{ marginBottom: '1rem' }} />
-                <h2 style={{ marginBottom: '2rem' }}>EduCore Login</h2>
-                <form onSubmit={handleLogin} style={{ textAlign: 'left' }}>
-                    <div className="form-group">
-                        <label>Username</label>
-                        <input required type="text" value={credentials.username} onChange={e => setCredentials({...credentials, username: e.target.value})} />
-                    </div>
-                    <div className="form-group" style={{ marginBottom: '2rem' }}>
-                        <label>Password</label>
-                        <input required type="password" value={credentials.password} onChange={e => setCredentials({...credentials, password: e.target.value})} />
-                    </div>
-                    <button type="submit" className="btn-primary" style={{ width: '100%' }}>Login to System</button>
-                </form>
-                <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#6b7280' }}>
-                    Admin Test: admin / REMOVED-DB-PASSWORD <br/> User Test: ayberk / REMOVED-DB-PASSWORD
-                </p>
-            </div>
-        </div>
-    )
+    return <main className="auth-page"><div className="auth-theme"><ThemeToggle/></div><Toaster/><section className="auth-card"><FullLogo/><h2>Sign in to EduCore</h2><form onSubmit={handleLogin}><div className="form-group"><label htmlFor="username">Username (required)</label><input id="username" autoComplete="username" required type="text" value={credentials.username} onChange={e => setCredentials({...credentials, username:e.target.value})}/></div><div className="form-group"><label htmlFor="password">Password (required)</label><div className="password-field"><input id="password" autoComplete="current-password" required type={showPassword ? 'text' : 'password'} value={credentials.password} onChange={e => setCredentials({...credentials, password:e.target.value})}/><button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}</button></div></div>{loginError && <p className="inline-error" role="alert"><CircleX size={16}/>{loginError}</p>}<button type="submit" className="btn-primary full-width">Sign in</button></form><p className="auth-caption">EduCore · Student and course registry</p></section></main>
 }

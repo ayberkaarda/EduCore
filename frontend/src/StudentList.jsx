@@ -1,11 +1,16 @@
-import { useState, useEffect } from 'react'
+import { api, apiError } from './api'
+import confirmAction from './confirm'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { Search, ChevronRight, User, Loader2, Plus, Edit, Trash2, Network, ArrowUpDown } from 'lucide-react'
-import toast, { Toaster } from 'react-hot-toast'
+import { Search, ChevronRight, User, Loader2, Plus, Edit, Trash2, ArrowUpDown } from 'lucide-react'
+import toast from 'react-hot-toast'
+import Toaster from './Toasts'
+import Dialog from './Dialog'
+import TemporaryPasswordDialog from './TemporaryPasswordDialog'
 import { useDebounce } from './hooks/useDebounce'
 
-const API_BASE = 'http://localhost:8081/api/v1'
+
 
 export default function StudentList({ appMode }) {
     const isAdmin = appMode.role === 'ADMIN'
@@ -14,6 +19,7 @@ export default function StudentList({ appMode }) {
     const [searchTerm, setSearchTerm] = useState('')
     const [isLoading, setIsLoading] = useState(true)
     const [availableIps, setAvailableIps] = useState([]);
+    const [poolHint, setPoolHint] = useState('')
     const [ipInputMode, setIpInputMode] = useState('manual');
     const [page, setPage] = useState(0)
     const [totalPages, setTotalPages] = useState(1)
@@ -26,6 +32,9 @@ export default function StudentList({ appMode }) {
 
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+    const [createdStudent, setCreatedStudent] = useState(null)
+    const [creationAnnouncement, setCreationAnnouncement] = useState('')
+    const [isCreating, setIsCreating] = useState(false)
 
     const [newStudent, setNewStudent] = useState({ firstName: '', lastName: '', studentNumber: '' })
     const [editStudent, setEditStudent] = useState({ id: null, firstName: '', lastName: '', studentNumber: '', ipAddress: '' })
@@ -33,60 +42,93 @@ export default function StudentList({ appMode }) {
     const debouncedSearchTerm = useDebounce(searchTerm, 500)
     const navigate = useNavigate()
 
-    useEffect(() => { setPage(0) }, [debouncedSearchTerm])
+    // A new search goes back to the first page (state adjusted during render).
+    const [lastSearch, setLastSearch] = useState(debouncedSearchTerm)
+    if (lastSearch !== debouncedSearchTerm) {
+        setLastSearch(debouncedSearchTerm)
+        setPage(0)
+    }
+
+    // Show the loader as soon as the query changes.
+    const queryKey = `${debouncedSearchTerm}|${page}|${sortDirection}|${showDeleted}`
+    const [loadedQueryKey, setLoadedQueryKey] = useState(queryKey)
+    if (loadedQueryKey !== queryKey) {
+        setLoadedQueryKey(queryKey)
+        setIsLoading(true)
+    }
+
+    // Only the most recent request may update the list, so a slow older
+    // response cannot overwrite newer results or end the loading state early.
+    const latestRequestId = useRef(0)
+    const loadStudents = useCallback((search, currentPage, direction, isDeletedView) => {
+        const requestId = ++latestRequestId.current
+        const isLatest = () => requestId === latestRequestId.current
+        return axios.get(api.students, { params: { search, page: currentPage, size: pageSize, direction, deleted: isDeletedView } })
+            .then(response => {
+                if (!isLatest()) return
+                setStudents(response.data.content)
+                setTotalPages(response.data.totalPages)
+            })
+            .catch((error) => { if (isLatest()) toast.error(apiError(error, "Failed to load students")) })
+            .finally(() => { if (isLatest()) setIsLoading(false) })
+    }, [])
+
+    const fetchStudents = (search, currentPage, direction, isDeletedView) => {
+        setIsLoading(true)
+        return loadStudents(search, currentPage, direction, isDeletedView)
+    }
 
     useEffect(() => {
-        fetchStudents(debouncedSearchTerm, page, sortDirection, showDeleted)
-    }, [debouncedSearchTerm, page, sortDirection, showDeleted])
+        loadStudents(debouncedSearchTerm, page, sortDirection, showDeleted)
+    }, [debouncedSearchTerm, page, sortDirection, showDeleted, loadStudents])
 
     useEffect(() => {
         if (isEditModalOpen) {
             const fetchAvailableIps = async () => {
                 try {
-                    const response = await axios.get(`${API_BASE}/ips`);
+                    const response = await axios.get(api.ipRules);
                     setAvailableIps(response.data);
                 } catch (error) {
-                    toast.error("IP listesi yüklenemedi.");
+                    toast.error(apiError(error, "Could not load IP rules."));
                 }
             };
             fetchAvailableIps();
-            setIpInputMode('manual');
         }
     }, [isEditModalOpen]);
 
-    const fetchStudents = async (search, currentPage, direction, isDeletedView) => {
-        setIsLoading(true)
-        try {
-            const response = await axios.get(`${API_BASE}/accounts/students?search=${search}&page=${currentPage}&size=${pageSize}&direction=${direction}&isDeleted=${isDeletedView ? 1 : 0}`)
-            setStudents(response.data.content)
-            setTotalPages(response.data.totalPages)
-        } catch (error) {
-            toast.error("Failed to load students")
-        } finally {
-            setIsLoading(false)
-        }
-    }
 
     const handleCreateStudent = async (e) => {
         e.preventDefault()
+        if (isCreating) return
+        setIsCreating(true)
         try {
-            await axios.post(`${API_BASE}/accounts/student`, newStudent)
-            toast.success('Student successfully added!')
+            const response = await axios.post(api.students, newStudent)
+            const student = {
+                firstName: response.data.firstName ?? newStudent.firstName,
+                lastName: response.data.lastName ?? newStudent.lastName,
+                studentNumber: response.data.studentNumber ?? newStudent.studentNumber,
+                temporaryPassword: response.data.temporaryPassword,
+            }
+            setCreatedStudent(student)
+            setCreationAnnouncement(`Student created: ${student.firstName} ${student.lastName}, student number ${student.studentNumber}. Save the temporary password shown in the dialog.`)
+            toast.success('Student added.')
             setIsModalOpen(false)
             setNewStudent({ firstName: '', lastName: '', studentNumber: '' })
             fetchStudents(debouncedSearchTerm, page, sortDirection, showDeleted)
         } catch (error) {
-            toast.error(error.response?.data?.error || error.response?.data?.message || 'Error occurred.')
+            toast.error(apiError(error, 'Error occurred.'))
+        } finally {
+            setIsCreating(false)
         }
     }
 
     const handleDelete = async (id) => {
-        if(!window.confirm('Are you sure you want to delete this student?')) return;
+        if(!await confirmAction(`Delete student ${students.find(student => student.id === id)?.studentNumber || id}? This hides the record.`)) return;
         try {
-            await axios.delete(`${API_BASE}/accounts/${id}`)
-            toast.success('Student deleted successfully!')
+            await axios.delete(api.account(id))
+            toast.success('Student deleted.')
             fetchStudents(debouncedSearchTerm, page, sortDirection, showDeleted)
-        } catch (error) { toast.error('Failed to delete student.') }
+        } catch (error) { toast.error(apiError(error, 'Failed to delete student.')) }
     }
 
     const openEditModal = (student) => {
@@ -97,23 +139,24 @@ export default function StudentList({ appMode }) {
             studentNumber: student.studentNumber || '',
             ipAddress: student.ipAddress || ''
         })
+        setIpInputMode('manual')
         setIsEditModalOpen(true)
     }
 
     const handleUpdateStudent = async (e) => {
         e.preventDefault()
         try {
-            await axios.put(`${API_BASE}/accounts/${editStudent.id}`, {
+            await axios.put(api.account(editStudent.id), {
                 firstName: editStudent.firstName,
                 lastName: editStudent.lastName,
                 studentNumber: editStudent.studentNumber,
                 ipAddress: editStudent.ipAddress
             })
-            toast.success('Student updated successfully!')
+            toast.success('Student updated.')
             setIsEditModalOpen(false)
             fetchStudents(debouncedSearchTerm, page, sortDirection, showDeleted)
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Failed to update student.')
+            toast.error(apiError(error, 'Failed to update student.'))
         }
     }
 
@@ -124,100 +167,86 @@ export default function StudentList({ appMode }) {
     return (
         <div className="card">
             <Toaster />
+            <span className="temporary-password-announcement" role="status" aria-live="polite" aria-atomic="true">{creationAnnouncement}</span>
+            {createdStudent && (
+                <TemporaryPasswordDialog student={createdStudent} onSaved={() => setCreatedStudent(null)} />
+            )}
             <div className="detail-header">
                 <div>
-                    <h2>Student Management</h2>
-                    <p className="text-gray">Select a student from the list to view courses or assign IP.</p>
+                    <h2>Students</h2>
+                    <p className="text-gray">Search, edit and enrol students</p>
                 </div>
 
-                <div className="search-box" style={{ position: 'relative', width: '300px' }}>
-                    <Search size={20} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#6b7280' }} />
-                    <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.5rem', borderRadius: '0.5rem', border: '1px solid #e5e7eb', outline: 'none', boxSizing: 'border-box' }} />
+                <div className="search-box">
+                    <Search size={20} />
+                    <input type="text" placeholder="Search by name or number" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}  aria-label="Search by name or number"/>
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div className="inline-fields">
                     {isAdmin && (
                         <button
                             className="btn-secondary"
+                            aria-pressed={showDeleted}
                             onClick={() => {
                                 setShowDeleted(!showDeleted);
                                 setPage(0);
                             }}
-                            style={{
-                                backgroundColor: showDeleted ? '#d1d5db' : '#fee2e2',
-                                color: showDeleted ? '#374151' : '#b91c1c',
-                                border: 'none',
-                                padding: '0.5rem 1rem',
-                                borderRadius: '0.5rem',
-                                cursor: 'pointer',
-                                fontWeight: '500'
-                            }}
                         >
-                            {showDeleted ? "Students" : "Deleted Students"}
+                            {showDeleted ? "Show active" : "Show deleted"}
                         </button>
                     )}
                     {isAdmin && (
                         <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
-                            <Plus size={18} /> New Student
+                            <Plus size={18} /> Add student
                         </button>
                     )}
                 </div>
             </div>
 
-            <div className="table-responsive" style={{marginTop: '1.5rem'}}>
+            <div className="table-responsive">
                 {isLoading ? ( <div className="empty-state"><Loader2 className="spin text-gray" size={32} /></div> )
-                    : students.length === 0 ? ( <div className="empty-state"><p>{showDeleted ? "No deleted students found." : "No students found."}</p></div> )
+                    : students.length === 0 ? ( <div className="empty-state"><User size={24}/><h4>{debouncedSearchTerm ? 'No students match your search.' : showDeleted ? 'No deleted students.' : 'No students yet.'}</h4><p>{debouncedSearchTerm ? 'Try another name or number.' : 'Add a student or run a CSV import.'}</p>{debouncedSearchTerm && <button className="btn-secondary" onClick={() => setSearchTerm('')}>Clear search</button>}</div> )
                         : (
                             <>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                <table>
                                     <thead>
-                                    <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                                        <th style={{ padding: '1rem', color: '#6b7280' }}>ID</th>
-                                        <th
-                                            onClick={toggleSorting}
-                                            style={{ padding: '1rem', color: '#6b7280', cursor: 'pointer', userSelect: 'none' }}
-                                            title="İsme göre sırala"
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                Full Name <ArrowUpDown size={14} /> ({sortDirection.toUpperCase()})
-                                            </div>
-                                        </th>
-                                        <th style={{ padding: '1rem', color: '#6b7280' }}>IP Address</th>
-                                        <th style={{ padding: '1rem', textAlign: 'right', color: '#6b7280' }}>Actions</th>
+                                    <tr>
+                                        <th>Student number</th>
+                                        <th aria-sort={sortDirection === 'asc' ? 'ascending' : 'descending'}><button className="sort-button" onClick={toggleSorting}>Name <ArrowUpDown size={14}/></button></th>
+                                        <th>IP address</th>
+                                        <th>Actions</th>
                                     </tr>
                                     </thead>
                                     <tbody>
                                     {students.map((student) => (
-                                        <tr key={student.id} style={{ borderBottom: '1px solid #e5e7eb', opacity: student.deleted === 1 ? 0.7 : 1 }}>
-                                            <td style={{ padding: '1rem', fontWeight: '500' }}>#{student.studentNumber || 'N/A'}</td>
-                                            <td style={{ padding: '1rem' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                    <div style={{ backgroundColor: '#f3f4f6', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={18} color="#4f46e5"/></div>
+                                        <tr key={student.id} className={showDeleted ? 'deleted-row' : ''}>
+                                            <td>#{student.studentNumber || 'N/A'}</td>
+                                            <td>
+                                                <div className="inline-group">
+                                                    <span className="avatar">{student.firstName?.slice(0,1)}{student.lastName?.slice(0,1)}</span>
                                                     {student.firstName} {student.lastName}
-                                                    {student.deleted === 1 && (
-                                                        <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '0.75rem', padding: '2px 6px', backgroundColor: '#fee2e2', borderRadius: '4px' }}>
-                                                            (Silindi)
-                                                        </span>
+                                                    {showDeleted && (
+                                                        <span className="badge neutral">Deleted</span>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td style={{ padding: '1rem' }}>
+                                            <td>
                                                 {student.ipAddress ? (
-                                                    <span className="badge" style={{ backgroundColor: '#eff6ff', color: '#1e40af', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Network size={14} /> {student.ipAddress}</span>
+                                                    <span className="mono">{student.ipAddress}</span>
                                                 ) : (
-                                                    <span className="text-gray" style={{ fontSize: '0.85rem' }}>Unassigned</span>
+                                                    <span className="text-gray">Not assigned</span>
                                                 )}
                                             </td>
-                                            <td style={{ padding: '1rem', textAlign: 'right' }}>
-                                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                    <button className="btn-secondary" onClick={() => navigate(`/students/${student.id}`)} style={{ padding: '0.4rem 0.8rem' }}>
+                                            <td>
+                                                <div className="row-actions">
+                                                    <button className="btn-secondary" disabled={showDeleted} onClick={() => navigate(`/students/${student.id}`)}>
                                                         Courses <ChevronRight size={16} />
                                                     </button>
 
-                                                    {isAdmin && student.deleted !== 1 && (
+                                                    {isAdmin && !showDeleted && (
                                                         <>
-                                                            <button className="btn-secondary" onClick={() => openEditModal(student)} style={{ padding: '0.4rem', backgroundColor: '#fef3c7', color: '#b45309', border: 'none' }} title="Edit"><Edit size={16} /></button>
-                                                            <button className="btn-secondary" onClick={() => handleDelete(student.id)} style={{ padding: '0.4rem', backgroundColor: '#fee2e2', color: '#b91c1c', border: 'none' }} title="Delete"><Trash2 size={16} /></button>
+                                                            <button className="btn-secondary" onClick={() => openEditModal(student)} title="Edit" aria-label="Edit"><Edit size={16}/>Edit</button>
+                                                            <button className="btn-secondary" onClick={() => handleDelete(student.id)} title="Delete" aria-label="Delete"><Trash2 size={16}/>Delete</button>
                                                         </>
                                                     )}
                                                 </div>
@@ -227,52 +256,52 @@ export default function StudentList({ appMode }) {
                                     </tbody>
                                 </table>
 
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', padding: '0 1rem' }}>
-                                    <button className="btn-secondary" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} style={{ padding: '0.4rem 1rem' }}>Previous</button>
-                                    <span className="text-gray" style={{ fontSize: '0.875rem' }}>Page {page + 1} of {totalPages === 0 ? 1 : totalPages}</span>
-                                    <button className="btn-secondary" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} style={{ padding: '0.4rem 1rem' }}>Next</button>
+                                <div className="split-row">
+                                    <button className="btn-secondary" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>Previous</button>
+                                    <span className="text-gray">Page {page + 1} of {totalPages === 0 ? 1 : totalPages}</span>
+                                    <button className="btn-secondary" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>Next</button>
                                 </div>
                             </>
                         )}
             </div>
 
-            {/* Modal Components */}
+            
             {isModalOpen && (
                 <div className="modal-overlay">
-                    <div className="modal-content">
-                        <h3 style={{ marginTop: 0 }}>Add New Student</h3>
+                    <Dialog className="modal-content">
+                        <h3>Add student</h3>
                         <form onSubmit={handleCreateStudent}>
-                            <div className="form-group"><label>First Name</label><input required type="text" value={newStudent.firstName} onChange={e => setNewStudent({...newStudent, firstName: e.target.value})} /></div>
-                            <div className="form-group"><label>Last Name</label><input required type="text" value={newStudent.lastName} onChange={e => setNewStudent({...newStudent, lastName: e.target.value})} /></div>
-                            <div className="form-group"><label>Student ID</label><input required type="text" placeholder="e.g. 2601005" value={newStudent.studentNumber} onChange={e => setNewStudent({...newStudent, studentNumber: e.target.value})} /></div>
-                            <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary">Save</button></div>
+                            <div className="form-group"><label htmlFor="studentlist-field-1">First name (required)</label><input id="studentlist-field-1" required type="text" value={newStudent.firstName} onChange={e => setNewStudent({...newStudent, firstName: e.target.value})}  aria-label="First name"/></div>
+                            <div className="form-group"><label htmlFor="studentlist-field-2">Last name (required)</label><input id="studentlist-field-2" required type="text" value={newStudent.lastName} onChange={e => setNewStudent({...newStudent, lastName: e.target.value})}  aria-label="Last name"/></div>
+                            <div className="form-group"><label htmlFor="studentlist-field-3">Student number (required)</label><input id="studentlist-field-3" required type="text" placeholder="e.g. 2601005" value={newStudent.studentNumber} onChange={e => setNewStudent({...newStudent, studentNumber: e.target.value})}  aria-label="Student number"/></div>
+                            <div className="modal-actions"><button type="button" className="btn-secondary" disabled={isCreating} onClick={() => setIsModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary" disabled={isCreating}>{isCreating ? 'Saving…' : 'Save'}</button></div>
                         </form>
-                    </div>
+                    </Dialog>
                 </div>
             )}
 
             {isEditModalOpen && (
                 <div className="modal-overlay">
-                    <div className="modal-content">
-                        <h3 style={{ marginTop: 0 }}>Edit Student</h3>
+                    <Dialog className="modal-content">
+                        <h3>Edit student</h3>
                         <form onSubmit={handleUpdateStudent}>
-                            <div className="form-group"><label>First Name</label><input required type="text" value={editStudent.firstName} onChange={e => setEditStudent({...editStudent, firstName: e.target.value})} /></div>
-                            <div className="form-group"><label>Last Name</label><input required type="text" value={editStudent.lastName} onChange={e => setEditStudent({...editStudent, lastName: e.target.value})} /></div>
-                            <div className="form-group"><label>Student ID</label><input required type="text" value={editStudent.studentNumber} onChange={e => setEditStudent({...editStudent, studentNumber: e.target.value})} /></div>
+                            <div className="form-group"><label htmlFor="studentlist-field-4">First name (required)</label><input id="studentlist-field-4" required type="text" value={editStudent.firstName} onChange={e => setEditStudent({...editStudent, firstName: e.target.value})}  aria-label="First name"/></div>
+                            <div className="form-group"><label htmlFor="studentlist-field-5">Last name (required)</label><input id="studentlist-field-5" required type="text" value={editStudent.lastName} onChange={e => setEditStudent({...editStudent, lastName: e.target.value})}  aria-label="Last name"/></div>
+                            <div className="form-group"><label htmlFor="studentlist-field-6">Student number (required)</label><input id="studentlist-field-6" required type="text" value={editStudent.studentNumber} onChange={e => setEditStudent({...editStudent, studentNumber: e.target.value})}  aria-label="Student number"/></div>
 
                             <div className="form-group">
-                                <label>Assigned IP Address (Optional)</label>
-                                <select
-                                    style={{ marginBottom: '10px', width: '100%', padding: '0.6rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', outline: 'none' }}
+                                <label htmlFor="studentlist-field-7">IP source</label>
+                                <select id="studentlist-field-7" aria-label="IP source"
                                     value={ipInputMode === 'manual' ? 'manual' : (editStudent.ipAddress || 'manual')}
                                     onChange={(e) => {
                                         const selectedValue = e.target.value;
+                                        setPoolHint('');
                                         if (selectedValue === 'manual') {
                                             setIpInputMode('manual');
                                             setEditStudent({ ...editStudent, ipAddress: '' });
                                         } else {
                                             const selectedIpObj = availableIps.find(ipObj => {
-                                                const val = ipObj.ipAddress || ipObj.address || ipObj.cidr || ipObj.definition || ipObj.value;
+                                                const val = ipObj.originalValue;
                                                 return val === selectedValue;
                                             });
 
@@ -283,16 +312,14 @@ export default function StudentList({ appMode }) {
                                                 setIpInputMode('manual');
                                                 const prefix = selectedValue.split(/[-/]/)[0];
                                                 setEditStudent({ ...editStudent, ipAddress: prefix });
-                                                toast("Havuz seçildi. Lütfen bu aralıktan tekil bir IP adresi girin.", { icon: 'ℹ️' });
+                                                setPoolHint('Enter a single address from the selected pool.');
                                             }
                                         }
                                     }}
                                 >
-                                    <option value="manual">-- Yeni IP Gir (Manuel) --</option>
+                                    <option value="manual">Manual</option>
                                     {availableIps.map((ipObj) => {
-                                        const ipValue = ipObj.ipAddress || ipObj.address || ipObj.cidr || ipObj.definition || ipObj.value ||
-                                            Object.values(ipObj).find(v => typeof v === 'string' && v.includes('.')) ||
-                                            "IP BULUNAMADI";
+                                        const ipValue = ipObj.originalValue;
                                         const isUsedByAnother = students.some(
                                             (s) => s.ipAddress === ipValue && s.id !== editStudent.id
                                         );
@@ -303,27 +330,26 @@ export default function StudentList({ appMode }) {
                                                 key={ipObj.id}
                                                 value={ipValue}
                                                 disabled={isLocked}
-                                                style={{ color: isLocked ? '#ef4444' : (ipObj.type === 'STATIC' ? '#10b981' : 'inherit'), fontWeight: isLocked ? 'bold' : 'normal' }}
                                             >
-                                                {ipValue} ({ipObj.type === 'STATIC' ? 'Statik' : 'Havuz'}) {ipObj.type === 'STATIC' ? (isLocked ? ' - 🔴 (Dolu)' : ' - 🟢 (Boş)') : ''}
+                                                {ipValue} ({ipObj.type === 'STATIC' ? 'Single address' : 'Pool'}) {ipObj.type === 'STATIC' ? (isLocked ? ' — Assigned' : ' — Available') : ''}
                                             </option>
                                         );
                                     })}
                                 </select>
 
+                                {poolHint && <p className="field-hint">{poolHint}</p>}
                                 {ipInputMode === 'manual' && (
                                     <input
                                         type="text"
                                         value={editStudent.ipAddress || ''}
                                         onChange={(e) => setEditStudent({ ...editStudent, ipAddress: e.target.value })}
-                                        placeholder="Örn: 192.168.1.5"
-                                        style={{ width: '100%', padding: '0.6rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', outline: 'none', boxSizing: 'border-box' }}
-                                    />
+                                        placeholder="e.g. 192.168.1.5"
+                                     aria-label="IP address"/>
                                 )}
                             </div>
-                            <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary" style={{backgroundColor: '#f59e0b'}}>Update</button></div>
+                            <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary">Save changes</button></div>
                         </form>
-                    </div>
+                    </Dialog>
                 </div>
             )}
         </div>

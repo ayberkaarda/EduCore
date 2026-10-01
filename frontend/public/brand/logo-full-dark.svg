@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="214" height="40" viewBox="0 0 214 40" role="img" aria-label="EduCore">
+  <title>EduCore</title>
+  <!-- Ledger mark, 36 px, dark-surface tile colour -->
+  <g transform="translate(0 2) scale(0.75)">
+    <rect width="48" height="48" rx="12" fill="#1F6E84"/>
+    <g fill="#F2F4F5">
+      <rect x="13" y="13.5" width="22" height="5" rx="1.5"/>
+      <rect x="13" y="21.5" width="13" height="5" rx="1.5"/>
+      <rect x="30" y="21.5" width="5" height="5" rx="1.5"/>
+      <rect x="13" y="29.5" width="22" height="5" rx="1.5"/>
+    </g>
+  </g>
+  <!-- Wordmark in paper for dark surfaces -->
+  <g transform="translate(50 0)" fill="none" stroke="#E4EAED" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 7V33M3 7H17M3 20H15M3 33H17"/>
+    <circle cx="33.4" cy="24" r="7"/>
+    <path d="M40.4 7V33"/>
+    <path d="M49.8 15V26.5A6.5 6.5 0 0 0 62.8 26.5V15M62.8 15V33"/>
+    <path d="M94.39 10.81A13 13 0 1 0 94.39 29.19"/>
+    <circle cx="110.3" cy="24" r="7"/>
+    <path d="M126.7 15V33M126.7 22A7 7 0 0 1 133.7 15H135"/>
+    <path d="M144.4 24H158.4A7 7 0 1 0 156.35 28.95"/>
+  </g>
+</svg>

@@ -1,40 +1,42 @@
-import { useState, useEffect } from 'react'
+import { api, apiError } from './api'
+import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
-import toast, { Toaster } from 'react-hot-toast'
-import { CheckCircle2, PlusCircle, Book, Calendar, UserCheck } from 'lucide-react'
+import toast from 'react-hot-toast'
+import Toaster from './Toasts'
+import { PlusCircle, Calendar, Book } from 'lucide-react'
 
-const API_BASE = 'http://localhost:8081/api/v1'
+
 
 export default function StudentProfile({ currentUser }) {
+    const [profile, setProfile] = useState(null)
     const [allCourses, setAllCourses] = useState([])
     const [enrolledCourses, setEnrolledCourses] = useState([])
     const [isEnrolling, setIsEnrolling] = useState(false)
 
-    useEffect(() => {
-        fetchData()
-    }, [currentUser.id])
-
-    const fetchData = async () => {
-        try {
-            const [coursesRes, enrolledRes] = await Promise.all([
-                axios.get(`${API_BASE}/courses`),
-                axios.get(`${API_BASE}/accounts/${currentUser.id}/courses`)
-            ])
+    const fetchData = useCallback(() => Promise.all([
+        axios.get(api.courses),
+        axios.get(api.enrollments),
+        axios.get(api.me)
+    ])
+        .then(([coursesRes, enrolledRes, profileRes]) => {
+            setProfile(profileRes.data)
             setAllCourses(coursesRes.data)
             setEnrolledCourses(enrolledRes.data)
-        } catch (error) {
-            toast.error('Failed to load course data.')
-        }
-    }
+        })
+        .catch((error) => toast.error(apiError(error, 'Failed to load course data.'))), [])
+
+    useEffect(() => {
+        fetchData()
+    }, [fetchData])
 
     const handleEnroll = async (courseId) => {
         setIsEnrolling(true)
         try {
-            await axios.post(`${API_BASE}/enroll`, { accountId: currentUser.id, courseId: courseId })
-            toast.success('Course successfully selected!')
-            fetchData()
+            await axios.post(api.enrollments, { courseId })
+            toast.success('Course selected.')
+            await fetchData()
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Error occurred while selecting the course.')
+            toast.error(apiError(error, 'Error occurred while selecting the course.'))
         } finally {
             setIsEnrolling(false)
         }
@@ -44,14 +46,14 @@ export default function StudentProfile({ currentUser }) {
         <div className="student-detail-wrapper">
             <Toaster />
             <div className="detail-header">
-                <h2><UserCheck size={28} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '10px', color: '#4f46e5' }} /> My Student Profile</h2>
-                <p className="text-gray">Welcome {currentUser.name}, you can select your term courses below.</p>
+                <h2>My profile</h2>
+                <p className="text-gray">Your details and term courses</p>
             </div>
 
+            <section className="card profile-details"><h3>{profile ? [profile.firstName, profile.lastName].filter(Boolean).join(' ') : currentUser.name}</h3><p className="mono">{profile?.studentNumber || profile?.username || profile?.id}</p><span className={(profile?.role || currentUser.role) === 'ADMIN' ? 'badge' : 'badge neutral'}>{(profile?.role || currentUser.role) === 'ADMIN' ? 'Administrator' : 'User'}</span></section>
             <div className="course-grid">
                 <div className="card">
-                    <h3 className="section-title">
-                        <CheckCircle2 size={20} color="#10b981" /> My Enrolled Courses
+                    <h3 className="section-title"> Enrolled courses
                     </h3>
                     <div className="course-list">
                         {enrolledCourses.length === 0 ? (
@@ -71,10 +73,10 @@ export default function StudentProfile({ currentUser }) {
                 </div>
 
                 <div className="card">
-                    <h3 className="section-title">
-                        <Book size={20} color="#4f46e5" /> Available Course Catalog
+                    <h3 className="section-title"> Course catalogue
                     </h3>
                     <div className="course-list">
+                        {allCourses.length === 0 && <div className="empty-state"><Book size={24}/><h4>No courses yet.</h4><p>Available courses will appear here.</p></div>}
                         {allCourses.map(course => {
                             const isAlreadyEnrolled = enrolledCourses.some(ec => ec.id === course.id)
 

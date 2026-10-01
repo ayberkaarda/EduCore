@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react'
+import { api, apiError } from './api'
+import confirmAction from './confirm'
+import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
-import toast, { Toaster } from 'react-hot-toast'
-import { Book, Plus, Loader2, Calendar, Edit, Trash2, User } from 'lucide-react'
+import toast from 'react-hot-toast'
+import Toaster from './Toasts'
+import Dialog from './Dialog'
+import { Book, Plus, Loader2, Edit, Trash2 } from 'lucide-react'
 
-const API_BASE = 'http://localhost:8081/api/v1'
+
 
 export default function CourseManagement({ appMode }) {
     const isAdmin = appMode.role === 'ADMIN'
@@ -17,35 +21,37 @@ export default function CourseManagement({ appMode }) {
     const [newCourse, setNewCourse] = useState({ name: '', term: '', instructor: '' })
     const [editCourse, setEditCourse] = useState({ id: null, name: '', term: '', instructor: '' })
 
-    useEffect(() => { fetchData() }, [])
+    // isLoading starts as true, so the initial load does not need to set it.
+    const loadCourses = useCallback(() => axios.get(api.courses)
+        .then(res => setCourses(res.data))
+        .catch((error) => toast.error(apiError(error, 'Failed to load courses.')))
+        .finally(() => setIsLoading(false)), [])
 
-    const fetchData = async () => {
+    const fetchData = () => {
         setIsLoading(true)
-        try {
-            const res = await axios.get(`${API_BASE}/courses`)
-            setCourses(res.data)
-        } catch (error) { toast.error('Failed to load courses.') }
-        finally { setIsLoading(false) }
+        return loadCourses()
     }
+
+    useEffect(() => { loadCourses() }, [loadCourses])
 
     const handleCreate = async (e) => {
         e.preventDefault()
         try {
-            await axios.post(`${API_BASE}/courses`, newCourse)
-            toast.success('Course successfully added!')
+            await axios.post(api.adminCourses, newCourse)
+            toast.success('Course added.')
             setIsModalOpen(false)
             setNewCourse({ name: '', term: '', instructor: '' })
             fetchData()
-        } catch (error) { toast.error('Error occurred.') }
+        } catch (error) { toast.error(apiError(error, 'Error occurred.')) }
     }
 
     const handleDelete = async (id) => {
-        if(!window.confirm('Are you sure you want to delete this course?')) return;
+        if(!await confirmAction(`Delete course '${courses.find(course => course.id === id)?.name || id}'?`)) return;
         try {
-            await axios.delete(`${API_BASE}/courses/${id}`)
-            toast.success('Course deleted successfully!')
+            await axios.delete(api.course(id))
+            toast.success('Course deleted.')
             fetchData()
-        } catch (error) { toast.error('Failed to delete course.') }
+        } catch (error) { toast.error(apiError(error, 'Failed to delete course.')) }
     }
 
     const openEditModal = (course) => {
@@ -56,11 +62,11 @@ export default function CourseManagement({ appMode }) {
     const handleUpdate = async (e) => {
         e.preventDefault()
         try {
-            await axios.put(`${API_BASE}/courses/${editCourse.id}`, { name: editCourse.name, term: editCourse.term, instructor: editCourse.instructor })
-            toast.success('Course updated successfully!')
+            await axios.put(api.course(editCourse.id), { name: editCourse.name, term: editCourse.term, instructor: editCourse.instructor })
+            toast.success('Course updated.')
             setIsEditModalOpen(false)
             fetchData()
-        } catch (error) { toast.error('Failed to update course.') }
+        } catch (error) { toast.error(apiError(error, 'Failed to update course.')) }
     }
 
     return (
@@ -68,67 +74,43 @@ export default function CourseManagement({ appMode }) {
             <Toaster />
             <div className="detail-header">
                 <div>
-                    <h2><Book size={28} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '10px', color: '#4f46e5' }} /> Course Catalog</h2>
-                    <p className="text-gray">View all active courses in the system.</p>
+                    <h2>Courses</h2>
+                    <p className="text-gray">Catalogue of active courses</p>
                 </div>
                 {isAdmin && (
                     <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
-                        <Plus size={18} /> New Course
+                        <Plus size={18} /> Add course
                     </button>
                 )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '2rem' }}>
-                {isLoading ? <Loader2 className="spin text-gray" /> : courses.map(c => (
-                    <div key={c.id} className="course-item" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '1.5rem', border: '1px solid #e5e7eb', borderRadius: '0.75rem', backgroundColor: '#f9fafb' }}>
-
-                        {isAdmin && (
-                            <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', gap: '0.5rem' }}>
-                                <button className="btn-secondary" onClick={() => openEditModal(c)} style={{ padding: '0.3rem', backgroundColor: '#fef3c7', color: '#b45309', border: 'none' }}><Edit size={14} /></button>
-                                <button className="btn-secondary" onClick={() => handleDelete(c.id)} style={{ padding: '0.3rem', backgroundColor: '#fee2e2', color: '#b91c1c', border: 'none' }}><Trash2 size={14} /></button>
-                            </div>
-                        )}
-
-                        <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', color: '#111827', paddingRight: '3rem' }}>{c.name}</h4>
-
-                        {/* DÜZELTME: Rozetler (Badges) yan yana hizalandı */}
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                            <span className="badge" style={{ backgroundColor: '#e0e7ff', color: '#3730a3', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <Calendar size={12} /> Term: {c.term}
-                            </span>
-                            <span className="badge" style={{ backgroundColor: '#d1fae5', color: '#065f46', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <User size={12} /> {c.instructor || 'Not Assigned'}
-                            </span>
-                        </div>
-                    </div>
-                ))}
-            </div>
+            <div className="table-responsive">{isLoading ? <div className="empty-state"><Loader2 className="spin"/></div> : <table><thead><tr><th>Course</th><th>Term</th><th>Instructor</th><th>Actions</th></tr></thead><tbody>{courses.map(c => <tr key={c.id}><td>{c.name}</td><td>{c.term}</td><td>{c.instructor || 'Not assigned'}</td><td>{isAdmin && <div className="row-actions"><button className="btn-secondary" onClick={() => openEditModal(c)}><Edit size={16}/>Edit</button><button className="btn-secondary" onClick={() => handleDelete(c.id)}><Trash2 size={16}/>Delete</button></div>}</td></tr>)}{courses.length === 0 && <tr><td colSpan="4"><div className="empty-state"><Book size={24}/><h4>No courses yet.</h4><p>Add the first course or run a CSV import.</p></div></td></tr>}</tbody></table>}</div>
 
             {isModalOpen && (
                 <div className="modal-overlay">
-                    <div className="modal-content">
-                        <h3 style={{ marginTop: 0 }}>Create New Course</h3>
+                    <Dialog className="modal-content">
+                        <h3>Add course</h3>
                         <form onSubmit={handleCreate}>
-                            <div className="form-group"><label>Course Name</label><input required type="text" value={newCourse.name} onChange={e => setNewCourse({...newCourse, name: e.target.value})} /></div>
-                            <div className="form-group"><label>Term</label><input required type="text" value={newCourse.term} onChange={e => setNewCourse({...newCourse, term: e.target.value})} /></div>
-                                <div className="form-group"><label>Instructor Name</label><input type="text" placeholder="e.g. Ayberk Arda" value={newCourse.instructor} onChange={e => setNewCourse({...newCourse, instructor: e.target.value})} /></div>
+                            <div className="form-group"><label htmlFor="coursemanagement-field-1">Course name (required)</label><input id="coursemanagement-field-1" required type="text" value={newCourse.name} onChange={e => setNewCourse({...newCourse, name: e.target.value})}  aria-label="Course name"/></div>
+                            <div className="form-group"><label htmlFor="coursemanagement-field-2">Term (required)</label><input id="coursemanagement-field-2" required type="text" value={newCourse.term} onChange={e => setNewCourse({...newCourse, term: e.target.value})}  aria-label="Term"/></div>
+                                <div className="form-group"><label htmlFor="coursemanagement-field-3">Instructor</label><input id="coursemanagement-field-3" type="text" placeholder="e.g. Ayberk Arda" value={newCourse.instructor} onChange={e => setNewCourse({...newCourse, instructor: e.target.value})}  aria-label="Instructor"/></div>
                             <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary">Save</button></div>
                         </form>
-                    </div>
+                    </Dialog>
                 </div>
             )}
 
             {isEditModalOpen && (
                 <div className="modal-overlay">
-                    <div className="modal-content">
-                        <h3 style={{ marginTop: 0 }}>Edit Course</h3>
+                    <Dialog className="modal-content">
+                        <h3>Edit course</h3>
                         <form onSubmit={handleUpdate}>
-                            <div className="form-group"><label>Course Name</label><input required type="text" value={editCourse.name} onChange={e => setEditCourse({...editCourse, name: e.target.value})} /></div>
-                            <div className="form-group"><label>Term</label><input required type="text" value={editCourse.term} onChange={e => setEditCourse({...editCourse, term: e.target.value})} /></div>
-                            <div className="form-group"><label>Instructor Name</label><input type="text" value={editCourse.instructor} onChange={e => setEditCourse({...editCourse, instructor: e.target.value})} /></div>
-                            <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary" style={{backgroundColor: '#f59e0b'}}>Update</button></div>
+                            <div className="form-group"><label htmlFor="coursemanagement-field-4">Course name (required)</label><input id="coursemanagement-field-4" required type="text" value={editCourse.name} onChange={e => setEditCourse({...editCourse, name: e.target.value})}  aria-label="Course name"/></div>
+                            <div className="form-group"><label htmlFor="coursemanagement-field-5">Term (required)</label><input id="coursemanagement-field-5" required type="text" value={editCourse.term} onChange={e => setEditCourse({...editCourse, term: e.target.value})}  aria-label="Term"/></div>
+                            <div className="form-group"><label htmlFor="coursemanagement-field-6">Instructor</label><input id="coursemanagement-field-6" type="text" value={editCourse.instructor} onChange={e => setEditCourse({...editCourse, instructor: e.target.value})}  aria-label="Instructor"/></div>
+                            <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</button><button type="submit" className="btn-primary">Save changes</button></div>
                         </form>
-                    </div>
+                    </Dialog>
                 </div>
             )}
         </div>

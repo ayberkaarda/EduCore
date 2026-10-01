@@ -1,8 +1,13 @@
-import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import { BookOpen, ShieldCheck, LogOut, Lock, ArrowRight, FileText, Globe } from 'lucide-react'
+import { api } from './api'
+import { BrowserRouter as Router, Routes, Route, Link, NavLink, Navigate, useLocation } from 'react-router-dom'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { BookOpen, LogOut, Lock, LayoutGrid, Users, ScrollText, Network, Menu } from 'lucide-react'
+import { LogoMark } from './Brand'
+import ThemeToggle from './ThemeToggle'
 import axios from 'axios'
 import StudentDetail from './StudentDetail'
+import StudentProfile from './StudentProfile'
+import UserManagement from './UserManagement'
 import StudentList from './StudentList'
 import CourseManagement from './CourseManagement'
 import JobLogs from './JobLogs'
@@ -10,7 +15,10 @@ import Login from './Login'
 import Home from './Home'
 import IpManagement from './IpManagement'
 import WeatherWidget from './WeatherWidget'
-import './App.css'
+import toast from 'react-hot-toast'
+import Toaster from './Toasts'
+
+const authClient = axios.create({ baseURL: api.auth, withCredentials: true })
 
 axios.interceptors.request.use(config => {
   const token = localStorage.getItem('token');
@@ -22,29 +30,7 @@ axios.interceptors.request.use(config => {
   return Promise.reject(error);
 });
 
-const Unauthorized = () => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
-      <div className="card" style={{ textAlign: 'center', padding: '4rem 3rem', maxWidth: '480px', width: '100%', position: 'relative', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)', borderRadius: '1.5rem', border: '1px solid #e5e7eb' }}>
-        <div style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', fontSize: '14rem', fontWeight: '900', color: '#fca5a5', opacity: '0.15', zIndex: 0, userSelect: 'none', letterSpacing: '-0.05em' }}>
-          401
-        </div>
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ width: '80px', height: '80px', backgroundColor: '#fee2e2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem auto', boxShadow: '0 0 0 10px rgba(254, 226, 226, 0.5)' }}>
-            <Lock size={36} color="#dc2626" />
-          </div>
-          <h2 style={{ color: '#111827', marginBottom: '1rem', fontSize: '2rem', fontWeight: '700', letterSpacing: '-0.02em' }}>
-            Access Denied
-          </h2>
-          <p className="text-gray" style={{ marginBottom: '2.5rem', lineHeight: '1.6', fontSize: '1rem' }}>
-            Oops! It looks like you're trying to enter a restricted area. Your session might have expired, or you don't have the necessary credentials.
-          </p>
-          <Link to="/login" className="btn-primary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%', padding: '0.875rem', fontSize: '1rem', borderRadius: '0.75rem', transition: 'all 0.2s ease', backgroundColor: '#111827' }}>
-            Secure Login <ArrowRight size={18} />
-          </Link>
-        </div>
-      </div>
-    </div>
-);
+const Unauthorized = () => <main className="auth-page"><section className="auth-card"><Lock size={24}/><h2>You do not have access to this page</h2><p className="text-gray">Sign in with an account that has access to continue.</p><Link to="/login" className="btn-primary">Sign in</Link></section></main>;
 
 const ProtectedRoute = ({ authData, children }) => {
   const location = useLocation();
@@ -57,100 +43,91 @@ const ProtectedRoute = ({ authData, children }) => {
   return children;
 };
 
-const AppLayout = ({ authData, setAuthData, children }) => {
-  const handleLogout = () => {
-    localStorage.clear()
-    delete axios.defaults.headers.common['Authorization']
-    setAuthData({ token: null, role: null, name: null })
-  }
+// Remove only the authentication keys written by Login.jsx (keeps preferences such as the theme).
+const clearAuthStorage = () => ['token', 'role', 'name'].forEach(key => localStorage.removeItem(key))
 
-  return (
-      <div className="app-layout">
-        <nav className="sidebar">
-          <div className="brand">
-            <BookOpen size={24} className="text-primary" />
-            <h2 style={{color: 'white'}}>EduCore</h2>
-          </div>
-
-          <ul className="nav-links">
-            <li><Link to="/">🏠 Home</Link></li>
-            <li><Link to="/students">🎓 Students</Link></li>
-            <li><Link to="/courses">📚 Courses</Link></li>
-            {authData.role === 'ADMIN' && (
-                <li>
-                  <Link to="/logs">
-                    <FileText size={16} style={{display:'inline', verticalAlign:'middle', marginRight:'5px'}}/>
-                    Job Logs
-                  </Link>
-                </li>
-            )}
-            {authData.role === 'ADMIN' && (
-                <li><Link to="/ips"><Globe size={16} style={{display:'inline', verticalAlign:'middle', marginRight:'5px'}}/> IP Setup</Link></li>
-            )}
-          </ul>
-
-          <div className="user-profile">
-            <ShieldCheck size={28} color={authData.role === 'ADMIN' ? '#10b981' : '#6b7280'} />
-            <div style={{ flex: 1 }}>
-              <p className="fw-500" style={{ fontSize: '13px', color: '#fff' }}>Logged in as:</p>
-              <p style={{ fontSize: '12px', color: authData.role === 'ADMIN' ? '#10b981' : '#9ca3af' }}>{authData.name} ({authData.role})</p>
-            </div>
-          </div>
-
-          <button onClick={handleLogout} className="btn-secondary" style={{ marginTop: '1rem', width: '100%', padding: '0.6rem', fontSize: '0.8rem', backgroundColor: '#fee2e2', color: '#b91c1c', border: 'none' }}>
-            <LogOut size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '5px' }} />
-            Logout
-          </button>
-        </nav>
-
-        <main className="content-area" style={{ position: 'relative' }}>
-
-          {/* SAĞ ÜSTTE YÜZEN ŞIK WIDGET */}
-          <div style={{
-            position: 'absolute',
-            top: '24px',
-            right: '32px',
-            zIndex: 9999
-          }}>
-            <WeatherWidget />
-          </div>
-
-          {/* Widget'ın altındaki içeriğin üstte ezilmemesi için boşluk */}
-          <div style={{ marginTop: '100px' }}>
-            {children}
-          </div>
-
-        </main>
-      </div>
-  )
+const AppLayout = ({ authData, handleLogout, children }) => {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const location = useLocation()
+  const labels = { '/': 'Dashboard', '/students': 'Students', '/courses': 'Courses', '/logs': 'Job logs', '/ips': 'IP rules', '/profile': 'My profile', '/users': 'Users' }
+  const navItem = (to, Icon, label) => <li><NavLink to={to} end={to === '/'} onClick={() => setMenuOpen(false)} title={label}><Icon size={20}/><span>{label}</span></NavLink></li>
+  return <div className={menuOpen ? 'app-layout menu-open' : 'app-layout'}>
+    <Toaster/>
+    <a className="skip-link" href="#main-content">Skip to content</a>
+    <nav className="sidebar" aria-label="Main navigation">
+      <Link to="/" className="brand" aria-label="EduCore home"><span className="sidebar-lockup"><LogoMark/><span>EduCore</span></span></Link>
+      <p className="nav-group">Registry</p><ul className="nav-links">{navItem('/', LayoutGrid, 'Dashboard')}{authData.role === 'ADMIN' && navItem('/students', Users, 'Students')}{navItem('/profile', Users, 'My profile')}{navItem('/courses', BookOpen, 'Courses')}</ul>
+      {authData.role === 'ADMIN' && <><p className="nav-group">Administration</p><ul className="nav-links">{navItem('/users', Users, 'Users')}{navItem('/logs', ScrollText, 'Job logs')}{navItem('/ips', Network, 'IP rules')}</ul></>}
+      <div className="sidebar-footer"><div className="user-profile"><span className="avatar">{authData.name?.slice(0,2).toUpperCase()}</span><div><p>{authData.name}</p><span className="badge neutral sidebar-badge">{authData.role === 'ADMIN' ? 'Administrator' : 'User'}</span></div></div><button onClick={handleLogout} className="sign-out" title="Sign out"><LogOut size={16}/><span>Sign out</span></button></div>
+    </nav>
+    <main className="content-area" id="main-content"><header className="top-bar"><button className="menu-toggle btn-secondary" aria-label="Toggle navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}><Menu size={20}/></button><span className="breadcrumb">{labels[location.pathname] || 'Students / Details'}</span><div className="top-tools"><WeatherWidget/><ThemeToggle/></div></header><div className="page-content">{children}</div></main>
+  </div>
 };
 
 function App() {
   const [authData, setAuthData] = useState({
     token: localStorage.getItem('token'),
     role: localStorage.getItem('role'),
-    name: localStorage.getItem('name')
+    name: localStorage.getItem('name'),
+    mustChangePassword: false
   })
+  const sessionVersion = useRef(0)
+  const refreshPromise = useRef(null)
+
+  const handleLogout = useCallback(async () => {
+    sessionVersion.current += 1
+    try {
+      await authClient.post('/logout')
+    } catch {
+      // Clear the local session even when the server is unavailable.
+    }
+    clearAuthStorage()
+    delete axios.defaults.headers.common['Authorization']
+    toast.dismiss('must-change-password')
+    setAuthData({ token: null, role: null, name: null, mustChangePassword: false })
+  }, [])
 
   useEffect(() => {
-    if (authData.token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${authData.token}`
-    }
-
     const interceptor = axios.interceptors.response.use(
         (response) => response,
-        (error) => {
-          if (error.response && error.response.status === 401) {
-            localStorage.clear()
-            delete axios.defaults.headers.common['Authorization']
-            setAuthData({ token: null, role: null, name: null })
+        async (error) => {
+          if (error.response?.status !== 401) return Promise.reject(error)
+          const original = error.config
+          const isAuthRequest = /\/auth\/(login|refresh|logout)(?:[/?#]|$)/.test(original?.url || '')
+          if (!original || original._authRetried || isAuthRequest || !localStorage.getItem('token')) {
+            await handleLogout()
+            return Promise.reject(error)
           }
-          return Promise.reject(error)
+          original._authRetried = true
+          const version = sessionVersion.current
+          try {
+            const currentToken = localStorage.getItem('token')
+            if (original.headers.Authorization === `Bearer ${currentToken}`) {
+              if (!refreshPromise.current) {
+                refreshPromise.current = authClient.post('/refresh').then(({ data }) => {
+                  if (!data.accessToken || version !== sessionVersion.current) throw error
+                  localStorage.setItem('token', data.accessToken)
+                  axios.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`
+                  setAuthData(previous => ({ ...previous, token: data.accessToken }))
+                  return data.accessToken
+                }).finally(() => {
+                  refreshPromise.current = null
+                })
+              }
+              await refreshPromise.current
+            }
+          } catch {
+            await handleLogout()
+            return Promise.reject(error)
+          }
+          if (version !== sessionVersion.current) return Promise.reject(error)
+          original.headers.Authorization = `Bearer ${localStorage.getItem('token')}`
+          return axios(original)
         }
     )
 
     return () => axios.interceptors.response.eject(interceptor)
-  }, [authData.token])
+  }, [handleLogout])
 
   return (
       <Router>
@@ -160,14 +137,16 @@ function App() {
 
           <Route path="/*" element={
             <ProtectedRoute authData={authData}>
-              <AppLayout authData={authData} setAuthData={setAuthData}>
+              <AppLayout authData={authData} handleLogout={handleLogout}>
                 <Routes>
-                  <Route path="/" element={<Home authData={authData} />} />
-                  <Route path="/students" element={<StudentList appMode={{ role: authData.role }} />} />
-                  <Route path="/students/:id" element={<StudentDetail appMode={{ role: authData.role }} />} />
+                  <Route path="/" element={authData.role === 'ADMIN' ? <Home authData={authData} /> : <StudentProfile currentUser={authData} />} />
+                  <Route path="/students" element={authData.role === 'ADMIN' ? <StudentList appMode={{ role: authData.role }} /> : <Navigate to="/profile" replace />} />
+                  <Route path="/students/:id" element={authData.role === 'ADMIN' ? <StudentDetail /> : <Navigate to="/profile" replace />} />
+                  <Route path="/profile" element={<StudentProfile currentUser={authData} />} />
+                  <Route path="/users" element={authData.role === 'ADMIN' ? <UserManagement /> : <Navigate to="/profile" replace />} />
                   <Route path="/courses" element={<CourseManagement appMode={{ role: authData.role }} />} />
-                  <Route path="/ips" element={<IpManagement appMode={{ role: authData.role }} />} />
-                  <Route path="/logs" element={<JobLogs appMode={{ role: authData.role }} />} />
+                  <Route path="/ips" element={authData.role === 'ADMIN' ? <IpManagement appMode={{ role: authData.role }} /> : <Navigate to="/profile" replace />} />
+                  <Route path="/logs" element={authData.role === 'ADMIN' ? <JobLogs appMode={{ role: authData.role }} /> : <Navigate to="/profile" replace />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </AppLayout>

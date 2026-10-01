@@ -1,19 +1,22 @@
+import { api, apiError } from './api'
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Users, BookOpen, Clock, Loader2 } from 'lucide-react'
+import { Loader2, Users } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
-const API_BASE = 'http://localhost:8081/api/v1'
+
 
 export default function Home({ authData }) {
     const [stats, setStats] = useState({ totalStudents: 0, totalCourses: 0, recentStudents: [] })
+    const [loadError, setLoadError] = useState('')
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
                 const [studentsRes, coursesRes] = await Promise.all([
-                    axios.get(`${API_BASE}/accounts/students?page=0&size=5`), // Sadece son 5 kişi
-                    axios.get(`${API_BASE}/courses`)
+                    axios.get(api.students + '?page=0&size=5'), // Sadece son 5 kişi
+                    axios.get(api.courses)
                 ])
                 setStats({
                     totalStudents: studentsRes.data.totalElements,
@@ -22,6 +25,7 @@ export default function Home({ authData }) {
                 })
             } catch (error) {
                 console.error("Dashboard yüklenemedi", error)
+                setLoadError(apiError(error, 'Could not load the registry overview. Check your connection and refresh the page.'))
             } finally {
                 setIsLoading(false)
             }
@@ -32,41 +36,28 @@ export default function Home({ authData }) {
     if (isLoading) return <div className="empty-state"><Loader2 className="spin text-gray" size={40} /></div>
 
     return (
-        <div className="student-detail-wrapper">
-            <div className="detail-header" style={{ marginBottom: '2rem' }}>
-                <h2>Welcome to EduCore Dashboard, {authData.name}!</h2>
-                <p className="text-gray">System overview and real-time statistics.</p>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-                <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', margin: 0, padding: '1.5rem' }}>
-                    <div style={{ padding: '1rem', backgroundColor: '#e0e7ff', borderRadius: '1rem', color: '#4f46e5' }}><Users size={32}/></div>
-                    <div><h3 style={{ margin: 0, fontSize: '1.8rem' }}>{stats.totalStudents}</h3><p style={{ margin: 0, color: '#6b7280', fontWeight: 500 }}>Total Students</p></div>
-                </div>
-                <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', margin: 0, padding: '1.5rem' }}>
-                    <div style={{ padding: '1rem', backgroundColor: '#d1fae5', borderRadius: '1rem', color: '#059669' }}><BookOpen size={32}/></div>
-                    <div><h3 style={{ margin: 0, fontSize: '1.8rem' }}>{stats.totalCourses}</h3><p style={{ margin: 0, color: '#6b7280', fontWeight: 500 }}>Active Courses</p></div>
-                </div>
-            </div>
-
+        <div className="student-detail-wrapper" aria-label={'Registry overview for '+authData.name}>
+            <div className="detail-header"><div><h2>Dashboard</h2><p className="text-gray">Registry overview</p></div></div>
+            {loadError && <p className="inline-error" role="alert">{loadError}</p>}
+            <div className="stat-grid"><article className="card stat-tile"><p>Total students</p><h3>{stats.totalStudents}</h3><span>Student records</span></article><article className="card stat-tile"><p>Active courses</p><h3>{stats.totalCourses}</h3><span>Course catalogue</span></article></div>
             <div className="card">
-                <h3 className="section-title"><Clock size={20} color="#4f46e5"/> Recently Added Students</h3>
+                <div className="split-row"><h3 className="section-title">Recently added students</h3><Link to="/students">View all students</Link></div>
                 <div className="table-responsive">
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <table>
                         <thead>
-                        <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                            <th style={{ padding: '1rem', color: '#6b7280' }}>Student ID</th>
-                            <th style={{ padding: '1rem', color: '#6b7280' }}>Full Name</th>
+                        <tr>
+                            <th>Student number</th>
+                            <th>Name</th>
                         </tr>
                         </thead>
                         <tbody>
                         {stats.recentStudents.map((s) => (
-                            <tr key={s.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                <td style={{ padding: '1rem', fontWeight: '500' }}>#{s.studentNumber}</td>
-                                <td style={{ padding: '1rem' }}>{s.firstName} {s.lastName}</td>
+                            <tr key={s.id}>
+                                <td>#{s.studentNumber}</td>
+                                <td className="text-left">{s.firstName} {s.lastName}</td>
                             </tr>
                         ))}
-                        {stats.recentStudents.length === 0 && <tr><td colSpan="2" style={{ padding: '1rem' }}>No students found.</td></tr>}
+                        {stats.recentStudents.length === 0 && <tr><td colSpan="2"><div className="empty-state"><Users size={24}/><h4>No students yet.</h4><p>Add a student or run a CSV import.</p></div></td></tr>}
                         </tbody>
                     </table>
                 </div>

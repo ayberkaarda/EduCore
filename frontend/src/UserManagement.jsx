@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react'
+import { api, apiError } from './api'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
-import { Search, ShieldAlert, Loader2 } from 'lucide-react'
-import toast, { Toaster } from 'react-hot-toast'
+import { Search, Loader2 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import Toaster from './Toasts'
+import confirmAction from './confirm'
 import { useDebounce } from './hooks/useDebounce'
 
-const API_BASE = 'http://localhost:8081/api/v1'
+
 
 export default function UserManagement() {
     const [users, setUsers] = useState([])
@@ -13,57 +16,64 @@ export default function UserManagement() {
 
     const debouncedSearchTerm = useDebounce(searchTerm, 500)
 
-    useEffect(() => {
-        fetchUsers(debouncedSearchTerm)
-    }, [debouncedSearchTerm])
-
-    const fetchUsers = async (search) => {
+    // Show the loader as soon as the search changes (state adjusted during render).
+    const [loadedSearch, setLoadedSearch] = useState(debouncedSearchTerm)
+    if (loadedSearch !== debouncedSearchTerm) {
+        setLoadedSearch(debouncedSearchTerm)
         setIsLoading(true)
-        try {
-            const response = await axios.get(`${API_BASE}/accounts?search=${search}&page=0&size=50`)
-            setUsers(response.data.content)
-        } catch (error) {
-            toast.error('Failed to load users.')
-        } finally {
-            setIsLoading(false)
-        }
     }
 
+    // Only the most recent request may update the list (see StudentList).
+    const latestRequestId = useRef(0)
+    const loadUsers = useCallback((search) => {
+        const requestId = ++latestRequestId.current
+        const isLatest = () => requestId === latestRequestId.current
+        return axios.get(api.accounts, { params: { search, page: 0, size: 50, deleted: false } })
+            .then(response => { if (isLatest()) setUsers(response.data.content) })
+            .catch((error) => { if (isLatest()) toast.error(apiError(error, 'Failed to load users.')) })
+            .finally(() => { if (isLatest()) setIsLoading(false) })
+    }, [])
+
+    const fetchUsers = (search) => {
+        setIsLoading(true)
+        return loadUsers(search)
+    }
+
+    useEffect(() => {
+        loadUsers(debouncedSearchTerm)
+    }, [debouncedSearchTerm, loadUsers])
+
     const handleRoleChange = async (userId, newRole) => {
+        const user = users.find(item => item.id === userId)
+        const userName = user ? `${user.firstName} ${user.lastName}` : `user ${userId}`
+        const roleLabel = newRole === 'ADMIN' ? 'Administrator' : 'User'
+        if (!await confirmAction(`Change the role of ${userName} to ${roleLabel}?`, { confirmLabel: 'Change role', destructive: false })) return
         try {
-            await axios.put(`${API_BASE}/accounts/${userId}/role`, { role: newRole })
-            toast.success('User role updated!')
+            await axios.put(api.accountRole(userId), { role: newRole })
+            toast.success('User role updated.')
             fetchUsers(debouncedSearchTerm)
         } catch (error) {
-            toast.error('Error occurred while updating role.')
+            toast.error(apiError(error, 'Error occurred while updating role.'))
         }
     }
 
     return (
         <div className="card">
             <Toaster />
-            <div className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="detail-header split-row">
                 <div>
-                    <h2><ShieldAlert size={24} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px', color: '#ef4444' }} /> Role Management</h2>
-                    <p className="text-gray">Manage access levels of users in the system.</p>
+                    <h2>Users</h2>
+                    <p className="text-gray">Roles and access levels</p>
                 </div>
 
-                <div className="search-box" style={{ position: 'relative', width: '300px', maxWidth: '100%', flexShrink: 0 }}>
-                    <Search size={20} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#6b7280' }} />
+                <div className="search-box">
+                    <Search size={20} />
                     <input
                         type="text"
                         placeholder="Search users..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{
-                            width: '100%',
-                            padding: '0.6rem 1rem 0.6rem 2.5rem',
-                            borderRadius: '0.5rem',
-                            border: '1px solid #e5e7eb',
-                            outline: 'none',
-                            boxSizing: 'border-box'
-                        }}
-                    />
+                     aria-label="Search by name or number"/>
                 </div>
             </div>
 
@@ -73,33 +83,32 @@ export default function UserManagement() {
                 ) : users.length === 0 ? (
                     <div className="empty-state"><p>No users found.</p></div>
                 ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <table>
                         <thead>
-                        <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                            <th style={{ padding: '1rem', color: '#6b7280' }}>User</th>
-                            <th style={{ padding: '1rem', color: '#6b7280' }}>ID</th>
-                            <th style={{ padding: '1rem', color: '#6b7280' }}>Current Role</th>
-                            <th style={{ padding: '1rem', textAlign: 'right', color: '#6b7280' }}>Action</th>
+                        <tr>
+                            <th>User</th>
+                            <th>Identifier</th>
+                            <th>Role</th>
+                            <th>Action</th>
                         </tr>
                         </thead>
                         <tbody>
                         {users.map((user) => (
-                            <tr key={user.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                <td style={{ padding: '1rem', fontWeight: '500' }}>{user.firstName} {user.lastName}</td>
-                                <td style={{ padding: '1rem', color: '#6b7280' }}>{user.studentNumber || 'N/A'}</td>
-                                <td style={{ padding: '1rem' }}>
-                                    <span className={`badge ${user.role === 'ADMIN' ? 'success' : ''}`} style={{ backgroundColor: user.role === 'ADMIN' ? '#fee2e2' : '#d1fae5', color: user.role === 'ADMIN' ? '#991b1b' : '#065f46' }}>
-                                      {user.role}
+                            <tr key={user.id}>
+                                <td>{user.firstName} {user.lastName}</td>
+                                <td className="mono">{user.studentNumber || 'Not assigned'}</td>
+                                <td>
+                                    <span className={user.role === 'ADMIN' ? 'badge' : 'badge neutral'}>
+                                      {user.role === 'ADMIN' ? 'Administrator' : 'User'}
                                     </span>
                                 </td>
-                                <td style={{ padding: '1rem', textAlign: 'right' }}>
-                                    <select
+                                <td>
+                                    <select aria-label={`Role for ${user.firstName} ${user.lastName}`}
                                         value={user.role} 
                                         onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                                        style={{ padding: '0.4rem', borderRadius: '0.375rem', border: '1px solid #d1d5db', outline: 'none', cursor: 'pointer' }}
                                     >
                                         <option value="USER">User</option>
-                                        <option value="ADMIN">Admin</option>
+                                        <option value="ADMIN">Administrator</option>
                                     </select>
                                 </td>
                             </tr>

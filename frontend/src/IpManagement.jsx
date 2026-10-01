@@ -1,7 +1,11 @@
-import { useState, useEffect } from 'react'
+import { api, apiError } from './api'
+import confirmAction from './confirm'
+import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
-import toast, { Toaster } from 'react-hot-toast'
-import { Globe, Plus, Trash2, Loader2 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import Toaster from './Toasts'
+import Dialog from './Dialog'
+import { Plus, Trash2, Loader2 } from 'lucide-react'
 
 // YARDIMCI FONKSİYONLAR: IPv4 format kontrolü ve matematiksel büyüklük kontrolü
 const isValidIpv4 = (ip) => {
@@ -17,21 +21,25 @@ export default function IpManagement({ appMode }) {
     const [blocks, setBlocks] = useState([])
     const [isLoading, setIsLoading] = useState(true)
     const [isModalOpen, setIsModalOpen] = useState(false)
+    const [validationError, setValidationError] = useState('')
     const [form, setForm] = useState({ type: 'STATIC', val1: '', val2: '' })
 
-    useEffect(() => { if (isAdmin) fetchData() }, [isAdmin])
+    // isLoading starts as true, so the initial load does not need to set it.
+    const loadBlocks = useCallback(() => axios.get(api.ipRules)
+        .then(res => setBlocks(res.data))
+        .catch((error) => toast.error(apiError(error, "Could not load IP rules.")))
+        .finally(() => setIsLoading(false)), [])
 
-    const fetchData = async () => {
+    const fetchData = () => {
         setIsLoading(true)
-        try {
-            const res = await axios.get('http://localhost:8081/api/v1/ip-blocks')
-            setBlocks(res.data)
-        } catch (e) { toast.error("Failed to load IP Blocks.") }
-        finally { setIsLoading(false) }
+        return loadBlocks()
     }
+
+    useEffect(() => { if (isAdmin) loadBlocks() }, [isAdmin, loadBlocks])
 
     const handleCreate = async (e) => {
         e.preventDefault()
+        setValidationError('')
 
         // --- YENİ: FRONTEND GÜVENLİK KONTROLLERİ ---
         const v1 = form.val1.trim();
@@ -39,25 +47,25 @@ export default function IpManagement({ appMode }) {
 
         if (form.type === 'STATIC') {
             if (!isValidIpv4(v1)) {
-                return toast.error("Geçersiz IPv4 formatı! (Örn: 192.168.1.5)");
+                return setValidationError("Enter an IPv4 address such as 192.168.1.5.");
             }
         }
         else if (form.type === 'RANGE') {
             if (!isValidIpv4(v1) || !isValidIpv4(v2)) {
-                return toast.error("Başlangıç veya Bitiş IP formatı hatalı!");
+                return setValidationError("Enter valid start and end IPv4 addresses.");
             }
             if (ipToLong(v1) > ipToLong(v2)) {
-                return toast.error("Bitiş IP adresi, Başlangıç IP adresinden küçük olamaz!");
+                return setValidationError("The end address must be greater than or equal to the start address.");
             }
         }
         else if (form.type === 'CIDR') {
             const parts = v1.split('/');
             if (parts.length !== 2 || !isValidIpv4(parts[0])) {
-                return toast.error("Geçersiz CIDR formatı! (Örn: 192.168.1.0/24)");
+                return setValidationError("Enter a subnet such as 192.168.1.0/24.");
             }
             const prefix = parseInt(parts[1], 10);
             if (isNaN(prefix) || prefix < 0 || prefix > 32) {
-                return toast.error("CIDR ağ maskesi /0 ile /32 arasında olmalıdır!");
+                return setValidationError("The subnet prefix must be between /0 and /32.");
             }
         }
         // ------------------------------------------
@@ -66,62 +74,62 @@ export default function IpManagement({ appMode }) {
         if (form.type === 'RANGE') originalValue = `${v1}-${v2}`;
 
         try {
-            await axios.post('http://localhost:8081/api/v1/ip-blocks', { type: form.type, originalValue })
-            toast.success("IP Block defined successfully!")
+            await axios.post(api.ipRules, { type: form.type, originalValue })
+            toast.success("IP rule added.")
             setIsModalOpen(false)
             setForm({ type: 'STATIC', val1: '', val2: '' })
             fetchData()
         } catch (err) {
-            toast.error(err.response?.data?.error || "Error adding IP Block.")
+            toast.error(apiError(err, "Could not add the IP rule."))
         }
     }
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Delete this IP definition?")) return;
+        if (!await confirmAction(`Delete rule ${blocks.find(block => block.id === id)?.originalValue || id}?`)) return;
         try {
-            await axios.delete(`http://localhost:8081/api/v1/ip-blocks/${id}`)
+            await axios.delete(api.ipRule(id))
             toast.success("Deleted successfully.")
             fetchData()
-        } catch (e) { toast.error("Delete failed.") }
+        } catch (error) { toast.error(apiError(error, "Delete failed.")) }
     }
 
-    if (!isAdmin) return <div className="card"><h2>Access Denied</h2></div>
+    if (!isAdmin) return <div className="card"><h2>You do not have access to this page</h2></div>
 
     return (
         <div className="card">
             <Toaster />
-            {/* Header ve Tablo Kısımları Aynı Bırakıldı... */}
-            <div className="detail-header" style={{ marginBottom: '2rem' }}>
+            
+            <div className="detail-header">
                 <div>
-                    <h2><Globe size={28} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '10px', color: '#4f46e5' }} /> IP Address Management</h2>
-                    <p className="text-gray">Define allowed IPv4 Addresses, Ranges, and CIDR Subnets.</p>
+                    <h2>IP rules</h2>
+                    <p className="text-gray">Allowed IPv4 addresses, ranges and subnets</p>
                 </div>
-                <button className="btn-primary" onClick={() => setIsModalOpen(true)}><Plus size={16}/> New Definition</button>
+                <button className="btn-primary" onClick={() => setIsModalOpen(true)}><Plus size={16}/> Add rule</button>
             </div>
 
             <div className="table-responsive">
-                {isLoading ? <Loader2 className="spin text-gray"/> : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                {isLoading ? <div className="empty-state"><Loader2 className="spin text-gray"/></div> : (
+                    <table>
                         <thead>
-                        <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                            <th style={{ padding: '1rem' }}>Type</th>
-                            <th style={{ padding: '1rem' }}>Definition</th>
-                            <th style={{ padding: '1rem', textAlign: 'right' }}>Actions</th>
+                        <tr>
+                            <th>Type</th>
+                            <th>Definition</th>
+                            <th>Actions</th>
                         </tr>
                         </thead>
                         <tbody>
                         {blocks.map(b => (
-                            <tr key={b.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                <td style={{ padding: '1rem' }}>
-                                    <span className="badge" style={{backgroundColor: '#e0e7ff', color: '#3730a3'}}>{b.type}</span>
+                            <tr key={b.id}>
+                                <td>
+                                    <span className="badge">{b.type === 'STATIC' ? 'Single address' : b.type === 'RANGE' ? 'Range' : 'Subnet'}</span>
                                 </td>
-                                <td style={{ padding: '1rem', fontWeight: '500' }}>{b.originalValue}</td>
-                                <td style={{ padding: '1rem', textAlign: 'right' }}>
-                                    <button className="btn-secondary" onClick={() => handleDelete(b.id)} style={{ padding: '0.4rem', color: '#b91c1c', border: 'none' }}><Trash2 size={16}/></button>
+                                <td className="mono">{b.originalValue}</td>
+                                <td>
+                                    <button className="btn-secondary" onClick={() => handleDelete(b.id)} aria-label="Delete" title="Delete"><Trash2 size={16}/></button>
                                 </td>
                             </tr>
                         ))}
-                        {blocks.length === 0 && <tr><td colSpan="3" className="text-center text-gray" style={{padding:'2rem'}}>No IP definitions found.</td></tr>}
+                        {blocks.length === 0 && <tr><td colSpan="3"><div className="empty-state"><h4>No IP rules yet.</h4><p>Add an address, range or subnet.</p></div></td></tr>}
                         </tbody>
                     </table>
                 )}
@@ -129,49 +137,50 @@ export default function IpManagement({ appMode }) {
 
             {isModalOpen && (
                 <div className="modal-overlay">
-                    <div className="modal-content">
-                        <h3>New IP Definition</h3>
+                    <Dialog className="modal-content">
+                        <h3>Add rule</h3>
                         <form onSubmit={handleCreate}>
                             <div className="form-group">
-                                <label>Definition Type</label>
-                                <select required value={form.type} onChange={e => setForm({...form, type: e.target.value, val1:'', val2:''})} style={{width:'100%', padding:'0.75rem', borderRadius:'0.5rem', border:'1px solid #d1d5db'}}>
-                                    <option value="STATIC">Single IP (Static)</option>
-                                    <option value="RANGE">IP Range</option>
+                                <label htmlFor="ipmanagement-field-1">Type (required)</label>
+                                <select id="ipmanagement-field-1" required value={form.type} onChange={e => setForm({...form, type: e.target.value, val1:'', val2:''})}>
+                                    <option value="STATIC">Single address</option>
+                                    <option value="RANGE">Range</option>
                                     <option value="CIDR">Subnet (CIDR)</option>
                                 </select>
                             </div>
 
                             {form.type === 'STATIC' && (
                                 <div className="form-group">
-                                    <label>IP Address</label>
-                                    <input required type="text" placeholder="e.g. 192.168.1.5" value={form.val1} onChange={e=>setForm({...form, val1: e.target.value})}/>
+                                    <label htmlFor="ipmanagement-field-2">IP address (required)</label>
+                                    <input id="ipmanagement-field-2" required type="text" placeholder="e.g. 192.168.1.5" value={form.val1} onChange={e=>setForm({...form, val1: e.target.value})}/>
                                 </div>
                             )}
                             {form.type === 'RANGE' && (
-                                <div style={{display:'flex', gap:'1rem'}}>
-                                    <div className="form-group" style={{flex:1}}>
-                                        <label>Start IP</label>
-                                        <input required type="text" placeholder="e.g. 192.168.1.1" value={form.val1} onChange={e=>setForm({...form, val1: e.target.value})}/>
+                                <div className="inline-fields">
+                                    <div className="form-group flex-field">
+                                        <label htmlFor="ipmanagement-field-3">Start address (required)</label>
+                                        <input id="ipmanagement-field-3" required type="text" placeholder="e.g. 192.168.1.1" value={form.val1} onChange={e=>setForm({...form, val1: e.target.value})}/>
                                     </div>
-                                    <div className="form-group" style={{flex:1}}>
-                                        <label>End IP</label>
-                                        <input required type="text" placeholder="e.g. 192.168.1.255" value={form.val2} onChange={e=>setForm({...form, val2: e.target.value})}/>
+                                    <div className="form-group flex-field">
+                                        <label htmlFor="ipmanagement-field-4">End address (required)</label>
+                                        <input id="ipmanagement-field-4" required type="text" placeholder="e.g. 192.168.1.255" value={form.val2} onChange={e=>setForm({...form, val2: e.target.value})}/>
                                     </div>
                                 </div>
                             )}
                             {form.type === 'CIDR' && (
                                 <div className="form-group">
-                                    <label>CIDR Notation</label>
-                                    <input required type="text" placeholder="e.g. 192.168.1.0/24" value={form.val1} onChange={e=>setForm({...form, val1: e.target.value})}/>
+                                    <label htmlFor="ipmanagement-field-5">Subnet (CIDR) (required)</label>
+                                    <input id="ipmanagement-field-5" required type="text" placeholder="e.g. 192.168.1.0/24" value={form.val1} onChange={e=>setForm({...form, val1: e.target.value})}/>
                                 </div>
                             )}
 
+                            {validationError && <p className="inline-error" role="alert">{validationError}</p>}
                             <div className="modal-actions">
                                 <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button>
-                                <button type="submit" className="btn-primary">Save Definition</button>
+                                <button type="submit" className="btn-primary">Save rule</button>
                             </div>
                         </form>
-                    </div>
+                    </Dialog>
                 </div>
             )}
         </div>
