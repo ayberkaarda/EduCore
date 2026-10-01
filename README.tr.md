@@ -4,6 +4,14 @@
 
 EduCore, Spring Boot API ve React (Vite) arayüzü kullanan bir eğitim yönetim sistemidir. Hesapları, dersleri ve kayıtları yönetir; CSV dosyalarını içe aktarır ve yöneticilerin öğrenci hesaplarına IPv4 atama kuralları tanımlamasını sağlar.
 
+## Ekran görüntüleri
+
+| | |
+| --- | --- |
+| <img src="screenshots/login.png" width="100%" alt="Giriş"><br>Giriş | <img src="screenshots/dashboard.png" width="100%" alt="Panel"><br>Panel |
+| <img src="screenshots/students.png" width="100%" alt="Öğrenciler"><br>Öğrenciler | <img src="screenshots/courses.png" width="100%" alt="Dersler"><br>Dersler |
+| <img src="screenshots/job-logs.png" width="100%" alt="İş kayıtları"><br>İş kayıtları | |
+
 ## API özeti
 
 Sürümlü API dört ana rota grubuna ayrılır:

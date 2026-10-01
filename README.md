@@ -4,6 +4,14 @@
 
 EduCore is an educational management system built with a Spring Boot API and a React (Vite) frontend. It manages accounts, courses and enrollments, imports CSV files, and lets administrators configure IPv4 allocation rules for student accounts.
 
+## Screenshots
+
+| | |
+| --- | --- |
+| <img src="screenshots/login.png" width="100%" alt="Login"><br>Login | <img src="screenshots/dashboard.png" width="100%" alt="Dashboard"><br>Dashboard |
+| <img src="screenshots/students.png" width="100%" alt="Students"><br>Students | <img src="screenshots/courses.png" width="100%" alt="Courses"><br>Courses |
+| <img src="screenshots/job-logs.png" width="100%" alt="Job logs"><br>Job logs | |
+
 ## API overview
 
 The versioned API uses four route groups:
