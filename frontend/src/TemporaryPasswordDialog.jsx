@@ -23,6 +23,7 @@ export default function TemporaryPasswordDialog({ student, onSaved }) {
             <Dialog className="modal-content temporary-password-dialog">
                 <h3>Student created</h3>
                 <p>{student.firstName} {student.lastName} · Student number: {student.studentNumber}</p>
+                {student.username && <p>Username: <span className="mono">{student.username}</span></p>}
                 <p id={warningId}>This password is shown only once. The student must change it at first sign-in.</p>
                 <p className="field-hint">Escape and clicking outside do not dismiss this dialog. Save the password, then choose “I have saved it”.</p>
                 <div className="form-group">

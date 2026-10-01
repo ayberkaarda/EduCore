@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import Toaster from './Toasts'
 import { ArrowLeft, PlusCircle, Calendar, Book } from 'lucide-react'
 
 
@@ -45,7 +44,6 @@ export default function StudentDetail() {
 
     return (
         <div className="student-detail-wrapper">
-            <Toaster />
             <button className="btn-secondary back-btn" onClick={() => navigate(-1)}>
                 <ArrowLeft size={18} /> Back
             </button>

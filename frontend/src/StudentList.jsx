@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { Search, ChevronRight, User, Loader2, Plus, Edit, Trash2, ArrowUpDown } from 'lucide-react'
 import toast from 'react-hot-toast'
-import Toaster from './Toasts'
 import Dialog from './Dialog'
 import TemporaryPasswordDialog from './TemporaryPasswordDialog'
 import { useDebounce } from './hooks/useDebounce'
@@ -107,6 +106,7 @@ export default function StudentList({ appMode }) {
                 firstName: response.data.firstName ?? newStudent.firstName,
                 lastName: response.data.lastName ?? newStudent.lastName,
                 studentNumber: response.data.studentNumber ?? newStudent.studentNumber,
+                username: response.data.username,
                 temporaryPassword: response.data.temporaryPassword,
             }
             setCreatedStudent(student)
@@ -166,7 +166,6 @@ export default function StudentList({ appMode }) {
 
     return (
         <div className="card">
-            <Toaster />
             <span className="temporary-password-announcement" role="status" aria-live="polite" aria-atomic="true">{creationAnnouncement}</span>
             {createdStudent && (
                 <TemporaryPasswordDialog student={createdStudent} onSaved={() => setCreatedStudent(null)} />

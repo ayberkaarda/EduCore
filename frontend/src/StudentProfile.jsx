@@ -1,8 +1,8 @@
 import { api, apiError } from './api'
+import confirmAction from './confirm'
 import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import Toaster from './Toasts'
 import { PlusCircle, Calendar, Book } from 'lucide-react'
 
 
@@ -29,6 +29,20 @@ export default function StudentProfile({ currentUser }) {
         fetchData()
     }, [fetchData])
 
+    const handleDrop = async (course) => {
+        if (!await confirmAction(`Drop the course '${course.name}'?`, { confirmLabel: 'Drop course' })) return
+        setIsEnrolling(true)
+        try {
+            await axios.delete(api.enrollment(course.id))
+            toast.success('Course dropped.')
+            await fetchData()
+        } catch (error) {
+            toast.error(apiError(error, 'Error occurred while dropping the course.'))
+        } finally {
+            setIsEnrolling(false)
+        }
+    }
+
     const handleEnroll = async (courseId) => {
         setIsEnrolling(true)
         try {
@@ -44,7 +58,6 @@ export default function StudentProfile({ currentUser }) {
 
     return (
         <div className="student-detail-wrapper">
-            <Toaster />
             <div className="detail-header">
                 <h2>My profile</h2>
                 <p className="text-gray">Your details and term courses</p>
@@ -65,7 +78,7 @@ export default function StudentProfile({ currentUser }) {
                                         <h4>{course.name}</h4>
                                         <span><Calendar size={14} /> {course.term}</span>
                                     </div>
-                                    <span className="badge success">Enrolled</span>
+                                    <div className="row-actions"><span className="badge success">Enrolled</span><button className="btn-secondary" onClick={() => handleDrop(course)} disabled={isEnrolling} aria-label={'Drop ' + course.name}>Drop</button></div>
                                 </div>
                             ))
                         )}

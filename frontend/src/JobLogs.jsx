@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import { CheckCircle, XCircle, AlertCircle, Loader2, FileSearch, Trash2, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
-import Toaster from './Toasts'
 import Dialog from './Dialog'
 
 export default function JobLogs({ appMode }) {
@@ -150,7 +149,6 @@ export default function JobLogs({ appMode }) {
 
     return (
         <div className="card">
-            <Toaster />
             <div className="detail-header split-row">
                 <div>
                     <h2>Job logs</h2>

@@ -3,7 +3,6 @@ import confirmAction from './confirm'
 import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import Toaster from './Toasts'
 import Dialog from './Dialog'
 import { Plus, Trash2, Loader2 } from 'lucide-react'
 
@@ -97,7 +96,6 @@ export default function IpManagement({ appMode }) {
 
     return (
         <div className="card">
-            <Toaster />
             
             <div className="detail-header">
                 <div>

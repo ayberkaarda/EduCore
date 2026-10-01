@@ -3,7 +3,6 @@ import confirmAction from './confirm'
 import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import Toaster from './Toasts'
 import Dialog from './Dialog'
 import { Book, Plus, Loader2, Edit, Trash2 } from 'lucide-react'
 
@@ -71,7 +70,6 @@ export default function CourseManagement({ appMode }) {
 
     return (
         <div className="card">
-            <Toaster />
             <div className="detail-header">
                 <div>
                     <h2>Courses</h2>

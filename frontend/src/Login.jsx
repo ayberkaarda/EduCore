@@ -22,15 +22,14 @@ export default function Login({ setAuthData }) {
             localStorage.setItem('token', token)
             localStorage.setItem('role', role)
             localStorage.setItem('name', firstName)
+            if (mustChangePassword) localStorage.setItem('mustChangePassword', 'true')
+            else localStorage.removeItem('mustChangePassword')
 
             // Tüm Axios isteklerine otomatik Bearer Token ekle
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
 
             setAuthData({ token, role, name: firstName, mustChangePassword: Boolean(mustChangePassword) })
             toast.success('Signed in.')
-            if (mustChangePassword) {
-                toast('You must change your password', { id: 'must-change-password', duration: Infinity })
-            }
         } catch (error) {
             setLoginError(apiError(error, 'The username or password is incorrect.'))
             toast.error(apiError(error, 'The username or password is incorrect.'))

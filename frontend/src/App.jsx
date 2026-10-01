@@ -1,6 +1,6 @@
 import { api } from './api'
 import { BrowserRouter as Router, Routes, Route, Link, NavLink, Navigate, useLocation } from 'react-router-dom'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
 import { BookOpen, LogOut, Lock, LayoutGrid, Users, ScrollText, Network, Menu } from 'lucide-react'
 import { LogoMark } from './Brand'
 import ThemeToggle from './ThemeToggle'
@@ -44,10 +44,14 @@ const ProtectedRoute = ({ authData, children }) => {
 };
 
 // Remove only the authentication keys written by Login.jsx (keeps preferences such as the theme).
-const clearAuthStorage = () => ['token', 'role', 'name'].forEach(key => localStorage.removeItem(key))
+const clearAuthStorage = () => ['token', 'role', 'name', 'mustChangePassword'].forEach(key => localStorage.removeItem(key))
 
 const AppLayout = ({ authData, handleLogout, children }) => {
   const [menuOpen, setMenuOpen] = useState(false)
+  // The notice stays until sign-out and comes back after a reload (the flag is kept with the session).
+  useEffect(() => {
+    if (authData.mustChangePassword) toast('You must change your password', { id: 'must-change-password', duration: Infinity })
+  }, [authData.mustChangePassword])
   const location = useLocation()
   const labels = { '/': 'Dashboard', '/students': 'Students', '/courses': 'Courses', '/logs': 'Job logs', '/ips': 'IP rules', '/profile': 'My profile', '/users': 'Users' }
   const navItem = (to, Icon, label) => <li><NavLink to={to} end={to === '/'} onClick={() => setMenuOpen(false)} title={label}><Icon size={20}/><span>{label}</span></NavLink></li>
@@ -69,7 +73,7 @@ function App() {
     token: localStorage.getItem('token'),
     role: localStorage.getItem('role'),
     name: localStorage.getItem('name'),
-    mustChangePassword: false
+    mustChangePassword: localStorage.getItem('mustChangePassword') === 'true'
   })
   const sessionVersion = useRef(0)
   const refreshPromise = useRef(null)
@@ -87,7 +91,9 @@ function App() {
     setAuthData({ token: null, role: null, name: null, mustChangePassword: false })
   }, [])
 
-  useEffect(() => {
+  // Layout effect: axios fixes its interceptor chain when a request starts, so the 401 handler must be
+  // registered before the pages' first (passive) effects send their requests, e.g. after a reload.
+  useLayoutEffect(() => {
     const interceptor = axios.interceptors.response.use(
         (response) => response,
         async (error) => {

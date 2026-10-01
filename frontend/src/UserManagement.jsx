@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
 import { Search, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import Toaster from './Toasts'
 import confirmAction from './confirm'
 import { useDebounce } from './hooks/useDebounce'
 
@@ -59,7 +58,6 @@ export default function UserManagement() {
 
     return (
         <div className="card">
-            <Toaster />
             <div className="detail-header split-row">
                 <div>
                     <h2>Users</h2>
