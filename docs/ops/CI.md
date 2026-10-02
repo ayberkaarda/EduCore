@@ -100,7 +100,7 @@ the configuration says. Findings and their dispositions are in docs/security/ZAP
 - Create `v*` tags only from a green `release/**` or `main` commit. A tag build publishes the backend image.
 
 All third-party actions are pinned by commit SHA (version in a trailing comment); tool images (Trivy,
-socat) and every Dockerfile/compose base image are pinned by digest. `.github/dependabot.yml` opens weekly
+gitleaks) and every Dockerfile/compose base image are pinned by digest. `.github/dependabot.yml` opens weekly
 PRs for Maven, npm (`/frontend`), Docker (`/`, `/frontend`, `/infra/backup`), docker-compose and GitHub
 Actions; minor and patch updates are grouped. Workflows run with `permissions: contents: read` and
 `persist-credentials: false`.
@@ -172,23 +172,18 @@ small and free of secrets. Build-time frontend settings are passed as build argu
 
 ### Backend tests inside the image build
 
-The backend Dockerfile runs `mvn verify` unless `--build-arg SKIP_TESTS=true`. The default is
-`SKIP_TESTS=false` so that an image cannot be produced from code whose tests fail. The integration tests
-use Testcontainers and need a Docker daemon, which a `RUN` step cannot reach through a socket mount
-(BuildKit's SSH forwarding was tried and does not carry the Docker API). CI therefore:
+The backend Dockerfile can run `mvn verify` during the image build (`--build-arg SKIP_TESTS=false`, the
+default of the Dockerfile itself). The integration tests use Testcontainers and need a Docker daemon, which
+a `RUN` step cannot reach through a socket mount, and several tests read files from the repository root
+(compose files, `.env.example`, documentation) that are not part of the image build context. For that
+reason every automated image build in this repository passes `SKIP_TESTS=true`: the `docker` job of
+`ci.yml`, the image scan in `supply-chain.yml` and `docker-compose.yml`.
 
-1. starts `alpine/socat` on the host network, listening on a random `127.0.0.1` port and forwarding to `/var/run/docker.sock`;
-2. builds with `docker buildx build --network host --allow network.host --build-arg TESTCONTAINERS_DOCKER_HOST=tcp://127.0.0.1:<port>`;
-3. removes the proxy when the step ends (the runner is ephemeral and the port is loopback-only).
-
-Inside the build `DOCKER_HOST` and `TESTCONTAINERS_HOST_OVERRIDE=localhost` are set only for the Maven
-command; the argument exists only in the build stage, not in the runtime image. This requires a Linux
-Docker host: on Docker Desktop the daemon is reachable this way but published container ports are not
-routed to a host-network build, so local image builds use `SKIP_TESTS=true` and tests run with `./mvnw verify`
-on the host instead. Without the daemon argument a `SKIP_TESTS=false` build stops with an explicit message.
-
-`docker-compose.yml` passes `SKIP_TESTS: "true"` as a build argument, so `docker compose up --build` works
-on any machine; CI is the place where the image is built with tests.
+The tests themselves run once, on the host, in the `backend` job of `ci.yml` (`./mvnw verify`, with the
+JaCoCo gate), and the image is only built and pushed after that job is green. A manual
+`docker build --build-arg SKIP_TESTS=false` needs a Docker daemon reachable from the build (see the
+`TESTCONTAINERS_DOCKER_HOST` build argument in the Dockerfile) and a build context that contains the files
+the tests read; use `./mvnw verify` on the host instead.
 
 ## Local equivalents
 
