@@ -1,14 +1,18 @@
 package com.educore.account;
 
+import com.educore.common.validation.InputPatterns;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * Body of {@code PUT /api/v1/admin/accounts/{accountId}}: replaces these four fields (a blank
- * {@code ipAddress} removes the assignment). {@code id}, {@code username}, {@code role}, {@code password},
- * {@code deleted} and {@code mustChangePassword} in the body are ignored.
+ * Body of {@code PUT /api/v1/admin/accounts/{accountId}}: replaces these four fields (an empty
+ * {@code studentNumber} or {@code ipAddress} removes the value). {@code id}, {@code username}, {@code role},
+ * {@code password}, {@code deleted} and {@code mustChangePassword} in the body are ignored.
  */
-public record UpdateStudentRequest(@Size(max = 100) String firstName,
-                                   @Size(max = 100) String lastName,
-                                   @Size(max = 32) String studentNumber,
-                                   @Size(max = 45) String ipAddress) {
+public record UpdateStudentRequest(
+        @NotBlank @Size(max = 100) @Pattern(regexp = InputPatterns.PERSON_NAME) String firstName,
+        @Size(max = 100) @Pattern(regexp = InputPatterns.PERSON_NAME) String lastName,
+        @Pattern(regexp = InputPatterns.STUDENT_NUMBER) String studentNumber,
+        @Size(max = 15) @Pattern(regexp = InputPatterns.OPTIONAL_IPV4) String ipAddress) {
 }

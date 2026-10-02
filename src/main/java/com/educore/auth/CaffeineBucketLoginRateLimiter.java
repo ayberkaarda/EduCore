@@ -1,49 +1,54 @@
 package com.educore.auth;
 
 import com.educore.config.EduCoreProperties;
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import io.github.bucket4j.Bucket;
-import io.github.bucket4j.ConsumptionProbe;
+import com.educore.ipaccess.ClientAddress;
+import com.educore.ratelimit.CaffeineRateLimitStore;
+import com.educore.ratelimit.RateLimitStore;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
-
 /**
- * Bucket4j token bucket per client IP: {@code educore.security.login.ip-attempts-per-minute} attempts
- * (default 10), refilled in full every minute. Buckets live in a bounded Caffeine cache and are dropped
- * after two idle minutes, when they would be full again anyway.
+ * Bucket4j token bucket per client: {@code educore.security.login.ip-attempts-per-minute} attempts (default 10),
+ * refilled in full every minute.
+ * <p>
+ * The bucket key is the shared canonical client key {@link ClientAddress#clientKey(String)}:
+ * an IPv4 address (IPv4-mapped IPv6 and {@code ip:port} forms normalised to it) or, for native IPv6, the /64
+ * network. One subscriber usually holds a whole /64, so keying IPv6 by the full address would give an attacker
+ * 2^64 fresh buckets (R-04). The auto-deny failure counter and the login lockout pairs use the same key.
+ * <p>
+ * Buckets live in a store of their own with the admission policy of the general limiter
+ * ({@link CaffeineRateLimitStore}): at most {@value #MAX_TRACKED_CLIENTS} clients get a bucket, an existing bucket
+ * is never evicted to make room (flooding with new addresses cannot reset an exhausted one), and newcomers to a
+ * full store share one overflow bucket of {@code educore.ratelimit.overflow-per-minute} attempts.
  */
 @Component
 public class CaffeineBucketLoginRateLimiter implements LoginRateLimiter {
 
-    private static final Duration WINDOW = Duration.ofMinutes(1);
-    private static final long MAX_TRACKED_IPS = 100_000;
+    static final long MAX_TRACKED_CLIENTS = 100_000;
+    private static final String PREFIX = "login:";
 
     private final int attemptsPerMinute;
-    private final Cache<String, Bucket> buckets;
+    private final RateLimitStore store;
 
+    @Autowired
     public CaffeineBucketLoginRateLimiter(EduCoreProperties properties) {
-        this.attemptsPerMinute = properties.security().login().ipAttemptsPerMinute();
-        this.buckets = Caffeine.newBuilder()
-                .maximumSize(MAX_TRACKED_IPS)
-                .expireAfterAccess(WINDOW.multipliedBy(2))
-                .build();
+        this(properties.security().login().ipAttemptsPerMinute(),
+                new CaffeineRateLimitStore(MAX_TRACKED_CLIENTS, properties.ratelimit().overflowPerMinute()));
+    }
+
+    CaffeineBucketLoginRateLimiter(int attemptsPerMinute, RateLimitStore store) {
+        this.attemptsPerMinute = attemptsPerMinute;
+        this.store = store;
     }
 
     @Override
     public Decision tryAcquire(String clientIp) {
-        Bucket bucket = buckets.get(clientIp, ip -> newBucket());
-        ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
-        if (probe.isConsumed()) {
-            return Decision.allow();
-        }
-        return Decision.reject(Duration.ofNanos(probe.getNanosToWaitForRefill()));
+        RateLimitStore.Decision decision = store.tryConsume(PREFIX + clientKey(clientIp), attemptsPerMinute);
+        return decision.allowed() ? Decision.allow() : Decision.reject(decision.retryAfter());
     }
 
-    private Bucket newBucket() {
-        return Bucket.builder()
-                .addLimit(limit -> limit.capacity(attemptsPerMinute).refillIntervally(attemptsPerMinute, WINDOW))
-                .build();
+    /** {@link ClientAddress#clientKey(String)}. */
+    static String clientKey(String clientIp) {
+        return ClientAddress.clientKey(clientIp);
     }
 }

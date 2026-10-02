@@ -53,7 +53,6 @@ public class AdminBootstrap implements ApplicationRunner {
                 // The login response includes firstName, so the bootstrap account needs one.
                 .firstName("Administrator")
                 .role(Role.ADMIN)
-                .deleted(0)
                 .mustChangePassword(true)
                 .build());
         log.info("ADMIN_BOOTSTRAPPED username={}", username);

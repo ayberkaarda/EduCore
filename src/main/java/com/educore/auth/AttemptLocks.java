@@ -32,7 +32,7 @@ public class AttemptLocks {
     private EntityManager entityManager;
 
     /** The lock could not be obtained within {@link #WAIT}; the transaction must roll back. */
-    static final class Busy extends RuntimeException {
+    public static final class Busy extends RuntimeException {
         Busy(Throwable cause) {
             super("Username attempt lock busy", cause, false, false);
         }

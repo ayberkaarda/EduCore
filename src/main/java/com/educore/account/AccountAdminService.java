@@ -1,9 +1,13 @@
 package com.educore.account;
 
+import com.educore.auth.LoginAttemptService;
+import com.educore.auth.RefreshTokenService;
+import com.educore.auth.UsernameHasher;
+import com.educore.common.query.LikePatterns;
 import com.educore.common.web.ApiProblemException;
 import com.educore.common.web.PageResponse;
-import com.educore.common.web.Paging;
 import com.educore.entity.Account;
+import com.educore.entity.AccountStatus;
 import com.educore.entity.Role;
 import com.educore.ipaccess.IpAllocationPolicy;
 import com.educore.repository.AccountRepository;
@@ -11,17 +15,20 @@ import com.educore.security.AuthenticatedUser;
 import com.educore.security.audit.AuditService;
 import com.educore.security.audit.SecurityEventType;
 import com.educore.service.AccountCredentialService;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Account administration (ADMIN only). Guards:
@@ -50,36 +57,58 @@ public class AccountAdminService {
     static final String IP_ADDRESS_NOT_ALLOCATABLE = "account/ip-address-not-allocatable";
 
     private static final int USERNAME_ATTEMPTS = 20;
+    /** {@code deleted=false} of the listings. */
+    private static final Set<AccountStatus> LISTED_ACTIVE = EnumSet.of(AccountStatus.ACTIVE);
+    /** {@code deleted=true} of the listings: soft-deleted and pending-deletion accounts. */
+    private static final Set<AccountStatus> LISTED_DELETED = EnumSet.complementOf(EnumSet.of(AccountStatus.ACTIVE));
 
     private final AccountRepository accountRepository;
     private final AccountCredentialService accountCredentialService;
     private final IpAllocationPolicy ipAllocationPolicy;
     private final AuditService auditService;
+    private final RefreshTokenService refreshTokens;
+    private final LoginAttemptService loginAttempts;
+    private final UsernameHasher usernameHasher;
+    private final Clock clock;
     private final SecureRandom random = new SecureRandom();
 
     public AccountAdminService(AccountRepository accountRepository, AccountCredentialService accountCredentialService,
-                               IpAllocationPolicy ipAllocationPolicy, AuditService auditService) {
+                               IpAllocationPolicy ipAllocationPolicy, AuditService auditService,
+                               RefreshTokenService refreshTokens, LoginAttemptService loginAttempts,
+                               UsernameHasher usernameHasher, Clock clock) {
         this.accountRepository = accountRepository;
         this.accountCredentialService = accountCredentialService;
         this.ipAllocationPolicy = ipAllocationPolicy;
         this.auditService = auditService;
+        this.refreshTokens = refreshTokens;
+        this.loginAttempts = loginAttempts;
+        this.usernameHasher = usernameHasher;
+        this.clock = clock;
     }
 
-    /** Every account (any role) matching {@code search}, active or soft-deleted, ordered by id. */
+    /**
+     * Every account (any role) whose first name, last name, username or student number contains
+     * {@code search} literally (case-insensitive; {@code %} and {@code _} are not wildcards), {@code ACTIVE}
+     * ({@code deleted=false}) or not ({@code deleted=true}: {@code DEACTIVATED} or {@code PENDING_DELETION}).
+     * {@code pageable} carries a whitelisted sort ({@link AccountAdminController#ACCOUNT_SORT}).
+     */
     @Transactional(readOnly = true)
-    public PageResponse<AccountResponse> searchAccounts(String search, boolean deleted, int page, int size) {
+    public PageResponse<AccountResponse> searchAccounts(String search, boolean deleted, Pageable pageable) {
         return PageResponse.of(accountRepository
-                .searchByDeleted(search, deleted ? 1 : 0, Paging.of(page, size, Sort.by("id")))
+                .searchByStatus(LikePatterns.contains(search), deleted ? LISTED_DELETED : LISTED_ACTIVE, pageable)
                 .map(AccountResponse::of));
     }
 
-    /** {@code USER} accounts matching {@code search}, active or soft-deleted, ordered by first name. */
+    /**
+     * {@code USER} accounts whose first name, last name or student number contains {@code search} literally,
+     * active or not (as for {@link #searchAccounts}), in the whitelisted order of {@code pageable}
+     * ({@link AccountAdminController#STUDENT_SORT}).
+     */
     @Transactional(readOnly = true)
-    public PageResponse<AccountResponse> searchStudents(String search, boolean deleted, int page, int size,
-                                                        String direction) {
-        Sort sort = Sort.by(Paging.direction(direction), "firstName").and(Sort.by("id"));
+    public PageResponse<AccountResponse> searchStudents(String search, boolean deleted, Pageable pageable) {
         return PageResponse.of(accountRepository
-                .searchAccountsByRoleAndDeleted(Role.USER, search, deleted ? 1 : 0, Paging.of(page, size, sort))
+                .searchAccountsByRoleAndStatus(Role.USER, LikePatterns.contains(search),
+                        deleted ? LISTED_DELETED : LISTED_ACTIVE, pageable)
                 .map(AccountResponse::of));
     }
 
@@ -108,7 +137,6 @@ public class AccountAdminService {
                 .studentNumber(studentNumber)
                 .ipAddress(ipAddress)
                 .role(Role.USER)
-                .deleted(0)
                 .build();
         String temporaryPassword = accountCredentialService.assignTemporaryPassword(account);
         Account saved = accountRepository.saveAndFlush(account);
@@ -172,7 +200,11 @@ public class AccountAdminService {
         return AccountResponse.of(saved);
     }
 
-    /** Soft delete ({@code deleted = 1}); idempotent for an account that is already deleted. */
+    /**
+     * Soft delete: {@code ACTIVE -> DEACTIVATED} (restorable by an ADMIN). Every refresh token family is revoked
+     * and the session epoch incremented, so no session survives a later restore (R-20). Idempotent: an account
+     * that is not active (already deactivated, or pending deletion requested by its owner) is left unchanged.
+     */
     @Transactional
     public void softDelete(AuthenticatedUser actor, long accountId) {
         if (actor.id() == accountId) {
@@ -180,15 +212,31 @@ public class AccountAdminService {
         }
         List<Long> activeAdmins = accountRepository.lockActiveAdminIds();
         Account account = findForUpdate(accountId);
-        if (account.getDeleted() != null && account.getDeleted() != 0) {
+        if (account.getStatus() != AccountStatus.ACTIVE) {
             return;
         }
         if (account.getRole() == Role.ADMIN) {
             requireAnotherActiveAdmin(activeAdmins, accountId);
         }
-        account.setDeleted(1);
+        account.setStatus(AccountStatus.DEACTIVATED);
+        account.setDeletedAt(clock.instant());
+        account.setSessionEpoch(account.getSessionEpoch() + 1);
         accountRepository.saveAndFlush(account);
+        refreshTokens.revokeAll(accountId);
         auditService.recordAction(SecurityEventType.ACCOUNT_DELETED, accountId, Map.of("soft", true));
+    }
+
+    /**
+     * Ends every login lockout of the account: deletes its failed login attempts (all (username, client) locks
+     * and the per-account progressive delay derive from them; successes are kept). Audited
+     * {@code ACCOUNT_LOGIN_UNLOCKED} with the number of removed attempts, also when it was zero.
+     */
+    @Transactional
+    public void unlockLogin(long accountId) {
+        Account account = findForUpdate(accountId);
+        int cleared = loginAttempts.clearFailures(usernameHasher.hash(account.getUsername()));
+        auditService.recordAction(SecurityEventType.ACCOUNT_LOGIN_UNLOCKED, accountId,
+                Map.of("clearedFailures", cleared));
     }
 
     private static void requireAnotherActiveAdmin(List<Long> activeAdmins, long accountId) {

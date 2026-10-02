@@ -52,10 +52,49 @@ public class UsernameHasher {
     }
 
     public String hash(String username) {
+        return hmacHex(key, username);
+    }
+
+    /**
+     * A keyed digest for another purpose than username hashing (domain separation, R-21): its key is
+     * {@code HMAC-SHA-256(key = label, message = pepper)} (HKDF-Extract with the label as salt), so no input of
+     * {@link #hash} (which is keyed with the pepper itself) can ever reproduce one of its outputs, and different
+     * labels give independent keys. The pepper never leaves this class.
+     */
+    public KeyedDigest derive(String label) {
+        try {
+            Mac extract = Mac.getInstance(ALGORITHM);
+            extract.init(new SecretKeySpec(label.getBytes(StandardCharsets.UTF_8), ALGORITHM));
+            return new KeyedDigest(new SecretKeySpec(extract.doFinal(key.getEncoded()), ALGORITHM));
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("HMAC-SHA-256 is not available", e);
+        }
+    }
+
+    /** HMAC-SHA-256 under a key derived by {@link #derive}; hex output. */
+    public static final class KeyedDigest {
+
+        private final SecretKeySpec key;
+
+        private KeyedDigest(SecretKeySpec key) {
+            this.key = key;
+        }
+
+        public String hex(String input) {
+            return hmacHex(key, input);
+        }
+
+        @Override
+        public String toString() {
+            return "KeyedDigest[<redacted>]";
+        }
+    }
+
+    private static String hmacHex(SecretKeySpec key, String input) {
         try {
             Mac mac = Mac.getInstance(ALGORITHM);
             mac.init(key);
-            return HexFormat.of().formatHex(mac.doFinal(username.getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of().formatHex(mac.doFinal(input.getBytes(StandardCharsets.UTF_8)));
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("HMAC-SHA-256 is not available", e);
         }

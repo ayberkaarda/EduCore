@@ -1,5 +1,6 @@
 package com.educore.auth;
 
+import com.educore.common.logging.LogSanitizer;
 import com.educore.entity.Account;
 import com.educore.repository.AccountRepository;
 import com.educore.security.ActiveAccount;
@@ -7,15 +8,19 @@ import com.educore.security.AuthenticatedUser;
 import com.educore.security.JwtService;
 import com.educore.security.audit.AuditService;
 import com.educore.security.audit.SecurityEventType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,6 +43,7 @@ public class AuthService {
 
     /** Retry-After when parallel requests for one username queue longer than {@link AttemptLocks#WAIT}. */
     private static final Duration BUSY_RETRY_AFTER = Duration.ofSeconds(5);
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final AccountRepository accountRepository;
     private final AccountLocks accountLocks;
@@ -51,12 +57,15 @@ public class AuthService {
     private final UsernameHasher usernameHasher;
     private final PasswordPolicy passwordPolicy;
     private final AuditService events;
+    private final CurrentPasswordCheck currentPasswordCheck;
+    private final Clock clock;
     private final TransactionTemplate transaction;
 
     public AuthService(AccountRepository accountRepository, AccountLocks accountLocks, AttemptLocks attemptLocks,
                        CredentialVerifier credentialVerifier, PasswordEncoder passwordEncoder, JwtService jwtService,
                        RefreshTokenService refreshTokens, LoginAttemptService attempts, LoginRateLimiter rateLimiter,
                        UsernameHasher usernameHasher, PasswordPolicy passwordPolicy, AuditService events,
+                       CurrentPasswordCheck currentPasswordCheck, Clock clock,
                        PlatformTransactionManager transactionManager) {
         this.accountRepository = accountRepository;
         this.accountLocks = accountLocks;
@@ -70,6 +79,8 @@ public class AuthService {
         this.usernameHasher = usernameHasher;
         this.passwordPolicy = passwordPolicy;
         this.events = events;
+        this.currentPasswordCheck = currentPasswordCheck;
+        this.clock = clock;
         this.transaction = new TransactionTemplate(transactionManager);
     }
 
@@ -107,20 +118,33 @@ public class AuthService {
 
     private Outcome loginLocked(LoginRequest request, String usernameHash, ClientInfo client) {
         attemptLocks.lock(usernameHash);
-        Optional<Duration> lock = attempts.remainingLock(usernameHash);
+        // Hard lock of this (username, client) pair only: other networks are never locked by these failures.
+        Optional<Duration> lock = attempts.remainingLock(usernameHash, client.ip());
         if (lock.isPresent()) {
             events.record(SecurityEventType.AUTH_LOGIN_FAILURE, null, null, client.ip(),
                     Map.of("reason", "locked", "usernameHash", usernameHash));
+            logLoginFailure("locked", request.username());
             return Outcome.failed(AuthProblemException.locked(lock.get()));
+        }
+        // Progressive delay of the username across all clients (distributed guessing); known networks are exempt.
+        Optional<Duration> wait = attempts.throttleDelay(usernameHash, client.ip());
+        if (wait.isPresent()) {
+            events.record(SecurityEventType.AUTH_LOGIN_FAILURE, null, null, client.ip(),
+                    Map.of("reason", "throttled", "usernameHash", usernameHash));
+            logLoginFailure("throttled", request.username());
+            return Outcome.failed(AuthProblemException.tooManyAttempts(wait.get()));
         }
 
         Account account = accountLocks.lockByUsername(request.username()).orElse(null);
         // Same bcrypt work for unknown users, legacy hashes and current hashes (CredentialVerifier).
         boolean matched = credentialVerifier.verify(request.password(),
                 account == null ? null : account.getPassword()).matched();
-        if (!matched || !ActiveAccount.isActive(account)) {
+        // Active accounts, and accounts in their deletion grace period (restore-only scope, ActiveAccount).
+        if (!matched || !ActiveAccount.mayAuthenticate(account, clock.instant())) {
             Long target = account == null ? null : account.getId();
-            recordFailure(usernameHash, target, client, matched ? "inactive_account" : "bad_credentials");
+            String reason = matched ? "inactive_account" : "bad_credentials";
+            recordFailure(usernameHash, target, client, reason);
+            logLoginFailure(reason, request.username());
             return Outcome.failed(AuthProblemException.invalidCredentials());
         }
 
@@ -135,7 +159,7 @@ public class AuthService {
             RefreshTokenService.Rotation rotation = refreshTokens.rotate(refreshToken, client);
             if (rotation instanceof RefreshTokenService.Rotation.Rotated rotated) {
                 Account account = accountRepository.findById(rotated.accountId()).orElse(null);
-                if (ActiveAccount.isActive(account)) {
+                if (ActiveAccount.mayAuthenticate(account, clock.instant())) {
                     return Outcome.of(new Session(accessFor(account), rotated.value()));
                 }
                 // Inactive account: undo the rotation, nothing is issued.
@@ -163,25 +187,17 @@ public class AuthService {
     public Session changePassword(AuthenticatedUser user, PasswordChangeRequest request, ClientInfo client) {
         String username = accountRepository.findById(user.id()).filter(ActiveAccount::isActive)
                 .map(Account::getUsername).orElseThrow(AuthProblemException::invalidCredentials);
-        String usernameHash = usernameHasher.hash(username);
-        return inTransaction(() -> changePasswordLocked(user.id(), usernameHash, request, client)).sessionOrThrow();
+        return inTransaction(() -> changePasswordLocked(user.id(), username, request, client)).sessionOrThrow();
     }
 
-    private Outcome changePasswordLocked(long accountId, String usernameHash, PasswordChangeRequest request,
+    private Outcome changePasswordLocked(long accountId, String username, PasswordChangeRequest request,
                                          ClientInfo client) {
-        attemptLocks.lock(usernameHash);
-        Optional<Duration> lock = attempts.remainingLock(usernameHash);
-        if (lock.isPresent()) {
-            return Outcome.failed(AuthProblemException.locked(lock.get()));
+        CurrentPasswordCheck.Result check = currentPasswordCheck.verify(accountId, username,
+                request.currentPassword(), client, "password_change_bad_current");
+        if (!check.verified()) {
+            return Outcome.failed((AuthProblemException) check.problem());
         }
-        Account account = accountLocks.lockById(accountId).filter(ActiveAccount::isActive).orElse(null);
-        if (account == null) {
-            return Outcome.failed(AuthProblemException.invalidCredentials());
-        }
-        if (!credentialVerifier.verify(request.currentPassword(), account.getPassword()).matched()) {
-            recordFailure(usernameHash, account.getId(), client, "password_change_bad_current");
-            return Outcome.failed(AuthProblemException.invalidCurrentPassword());
-        }
+        Account account = check.account();
         List<String> violations = new ArrayList<>(passwordPolicy.violations(request.newPassword()));
         if (request.newPassword().equals(request.currentPassword())) {
             violations.add("same_as_current");
@@ -189,7 +205,7 @@ public class AuthService {
         if (!violations.isEmpty()) {
             return Outcome.failed(AuthProblemException.passwordPolicy(violations));
         }
-        attempts.record(usernameHash, client.ip(), true);
+        currentPasswordCheck.recordSuccess(username, client);
         String newHash = passwordEncoder.encode(request.newPassword());
         if (!accountLocks.compareAndSetPassword(account.getId(), account.getPassword(), newHash, true)) {
             // Cannot happen while the account row is locked; never fall back to writing a stale copy.
@@ -203,16 +219,17 @@ public class AuthService {
         return Outcome.of(newSession(account, client));
     }
 
+    /**
+     * One log line per failed login with the submitted username (the identifier OWASP asks for in
+     * authentication failure logs), passed through {@link LogSanitizer}: it is user input. The password is
+     * never logged; the client IP is in the security event.
+     */
+    private static void logLoginFailure(String reason, String username) {
+        log.info("LOGIN_FAILED reason={} username={}", reason, LogSanitizer.sanitize(username));
+    }
+
     private void recordFailure(String usernameHash, Long accountId, ClientInfo client, String reason) {
-        attempts.record(usernameHash, client.ip(), false);
-        events.record(SecurityEventType.AUTH_LOGIN_FAILURE, null, accountId, client.ip(),
-                Map.of("reason", reason, "usernameHash", usernameHash));
-        attempts.remainingLock(usernameHash).ifPresent(remaining -> {
-            Map<String, Object> details = new HashMap<>();
-            details.put("usernameHash", usernameHash);
-            details.put("lockSeconds", remaining.toSeconds());
-            events.record(SecurityEventType.AUTH_LOCKED, null, accountId, client.ip(), details);
-        });
+        currentPasswordCheck.recordFailure(usernameHash, accountId, client, reason);
     }
 
     /**
@@ -229,6 +246,16 @@ public class AuthService {
         }
     }
 
+    /**
+     * A new session (access token at the account's current session epoch plus a new refresh token family) for an
+     * account the caller has just re-authenticated. Must run inside the caller's transaction, which holds the
+     * account row lock ({@link AccountLocks}).
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Session issueSession(Account account, ClientInfo client) {
+        return newSession(account, client);
+    }
+
     private Session newSession(Account account, ClientInfo client) {
         AuthResponse body = accessFor(account);
         String refreshToken = refreshTokens.issueNewFamily(account.getId(), client);
@@ -236,7 +263,7 @@ public class AuthService {
     }
 
     private AuthResponse accessFor(Account account) {
-        JwtService.IssuedAccessToken token = jwtService.issue(AuthenticatedUser.of(account));
+        JwtService.IssuedAccessToken token = jwtService.issue(AuthenticatedUser.of(account), account.getSessionEpoch());
         return new AuthResponse(token.token(), token.expiresInSeconds(), UserView.of(account));
     }
 
