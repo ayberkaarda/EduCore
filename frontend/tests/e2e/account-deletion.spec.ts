@@ -20,7 +20,9 @@ test('a USER schedules account deletion, is limited to restore or sign-out, and 
   const { deleteAfter } = await scheduled.json() as { deleteAfter: string }
   await expect(page).toHaveURL(/\/app\/login$/)
   await expect(page.getByRole('heading', { name: 'Sign in to EduCore' })).toBeVisible()
-  await expect(page.getByRole('status').filter({ hasText: 'Deletion scheduled until' })).toContainText(deleteAfter)
+  const notice = page.getByRole('status').filter({ hasText: 'Deletion scheduled until' })
+  await expect(notice).toHaveText(/Deletion scheduled until .+; sign in to restore\./)
+  await expect(notice).toContainText(String(new Date(deleteAfter).getUTCFullYear()))
 
   const session = await signIn(page, user.username, user.password)
   expect(session.user.status).toBe('PENDING_DELETION')
