@@ -8,6 +8,7 @@ import com.educore.security.RequestIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -27,7 +28,8 @@ import java.util.Map;
  * <p>
  * {@code details} must hold ids, enum values and field names only: never passwords, tokens, raw usernames,
  * personal names, student numbers or student IP addresses. Events are written in the caller's transaction,
- * so a mutation that rolls back leaves no event behind.
+ * so a mutation that rolls back leaves no event behind. Every recorded event is also published as a
+ * {@link SecurityEventRecorded} application event.
  */
 @Service
 public class AuditService {
@@ -37,11 +39,14 @@ public class AuditService {
     private final SecurityEventRepository repository;
     private final ClientIpResolver clientIpResolver;
     private final Clock clock;
+    private final ApplicationEventPublisher publisher;
 
-    public AuditService(SecurityEventRepository repository, ClientIpResolver clientIpResolver, Clock clock) {
+    public AuditService(SecurityEventRepository repository, ClientIpResolver clientIpResolver, Clock clock,
+                        ApplicationEventPublisher publisher) {
         this.repository = repository;
         this.clientIpResolver = clientIpResolver;
         this.clock = clock;
+        this.publisher = publisher;
     }
 
     /** Records an event whose actor and client IP the caller already knows (authentication flows). */
@@ -52,6 +57,22 @@ public class AuditService {
                 details == null || details.isEmpty() ? null : Map.copyOf(details)));
         log.info("SECURITY_EVENT type={} actor={} target={} requestId={}", type, actorAccountId, targetAccountId,
                 requestId);
+        publisher.publishEvent(new SecurityEventRecorded(type, ip));
+    }
+
+    /**
+     * Records an event about an account that was purged in the same transaction: the target is its
+     * {@code purged:<16 hex>} pseudonym, the actor the authenticated caller (an ADMIN hard delete) or nobody
+     * (the purge job), the IP that of the current request, if any.
+     */
+    public void recordAboutPurgedAccount(SecurityEventType type, String targetPseudonym, Map<String, Object> details) {
+        String requestId = RequestIdFilter.currentRequestId();
+        Long actor = currentActorId();
+        String ip = currentClientIp();
+        repository.save(SecurityEvent.aboutPurgedAccount(type, actor, targetPseudonym, ip, requestId, clock.instant(),
+                details == null || details.isEmpty() ? null : Map.copyOf(details)));
+        log.info("SECURITY_EVENT type={} actor={} target={} requestId={}", type, actor, targetPseudonym, requestId);
+        publisher.publishEvent(new SecurityEventRecorded(type, ip));
     }
 
     /**

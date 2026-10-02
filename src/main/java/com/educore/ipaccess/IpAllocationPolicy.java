@@ -1,26 +1,26 @@
 package com.educore.ipaccess;
 
-import com.educore.repository.IpBlockRepository;
-import com.educore.util.IpAddressUtil;
 import org.springframework.stereotype.Component;
 
-/** Decides whether an IPv4 address may be assigned to an account: it must lie inside a defined IP rule. */
+import java.util.Optional;
+
+/** Decides whether an IPv4 address may be assigned to an account: it must lie inside an IP allocation range. */
 @Component
 public class IpAllocationPolicy {
 
-    private final IpBlockRepository ipBlockRepository;
+    private final IpAllocationRangeRepository repository;
 
-    public IpAllocationPolicy(IpBlockRepository ipBlockRepository) {
-        this.ipBlockRepository = ipBlockRepository;
+    public IpAllocationPolicy(IpAllocationRangeRepository repository) {
+        this.repository = repository;
     }
 
     public boolean isValidFormat(String ip) {
-        return IpAddressUtil.isValidIpv4(ip);
+        return Ipv4.tryParse(ip).isPresent();
     }
 
     public boolean isAllocatable(String ip) {
-        long value = IpAddressUtil.ipToLong(ip);
-        return ipBlockRepository.findAll().stream()
-                .anyMatch(block -> value >= block.getStartIp() && value <= block.getEndIp());
+        Optional<Ipv4> address = Ipv4.tryParse(ip);
+        return address.isPresent() && repository.existsByStartIpLessThanEqualAndEndIpGreaterThanEqual(
+                address.get().toLong(), address.get().toLong());
     }
 }

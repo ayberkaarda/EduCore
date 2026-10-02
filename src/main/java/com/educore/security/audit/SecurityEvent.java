@@ -36,6 +36,14 @@ public class SecurityEvent {
 
     private Long targetAccountId;
 
+    /** 'purged:<16 hex>' once the actor account was purged (then {@code actorAccountId} is null). */
+    @Column(length = 64)
+    private String actorPseudonym;
+
+    /** 'purged:<16 hex>' once the target account was purged (then {@code targetAccountId} is null). */
+    @Column(length = 64)
+    private String targetPseudonym;
+
     @Column(length = 45)
     private String ip;
 
@@ -58,5 +66,14 @@ public class SecurityEvent {
         this.requestId = requestId;
         this.at = at;
         this.details = details;
+    }
+
+    /** An event about an account that no longer exists: the target is identified by its pseudonym only. */
+    public static SecurityEvent aboutPurgedAccount(SecurityEventType type, Long actorAccountId, String targetPseudonym,
+                                                   String ip, String requestId, Instant at,
+                                                   Map<String, Object> details) {
+        SecurityEvent event = new SecurityEvent(type, actorAccountId, null, ip, requestId, at, details);
+        event.targetPseudonym = targetPseudonym;
+        return event;
     }
 }

@@ -33,7 +33,8 @@ import java.util.UUID;
  * Issues and verifies HS256 access tokens.
  * <p>
  * Claims: {@code iss}, {@code aud}, {@code sub} (account id), {@code jti}, {@code iat}, {@code exp}
- * (15 minutes by default) and {@code roles}. The {@code kid} header names the signing key by a fingerprint
+ * (15 minutes by default), {@code roles} and {@code sep} (the account's session epoch at issuance; a token whose
+ * epoch no longer matches the account is rejected by {@code JwtAuthenticationFilter}). The {@code kid} header names the signing key by a fingerprint
  * of its bytes, so a token keeps verifying after its key moves from {@code EDUCORE_JWT_SECRET} to
  * {@code EDUCORE_JWT_SECRET_PREVIOUS} during a rotation (docs/security/KEY_ROTATION.md).
  * <p>
@@ -48,6 +49,7 @@ public class JwtService {
     static final int MAX_TOKEN_LENGTH = 4096;
     static final long CLOCK_SKEW_SECONDS = 30;
     static final String ROLES_CLAIM = "roles";
+    static final String SESSION_EPOCH_CLAIM = "sep";
 
     private static final String CURRENT_VARIABLE = "EDUCORE_JWT_SECRET";
     private static final String CURRENT_PROPERTY = "educore.security.jwt.secret";
@@ -104,8 +106,16 @@ public class JwtService {
                 .build();
     }
 
-    /** Signs a new access token for {@code user} with the current key. */
+    /** Signs a new access token for {@code user} at session epoch 0 with the current key. */
     public IssuedAccessToken issue(AuthenticatedUser user) {
+        return issue(user, 0);
+    }
+
+    /**
+     * Signs a new access token for {@code user} with the current key, bound to {@code sessionEpoch} (the account's
+     * {@code session_epoch}): the token stops authenticating as soon as the account's epoch changes.
+     */
+    public IssuedAccessToken issue(AuthenticatedUser user, int sessionEpoch) {
         Instant now = clock.instant();
         Instant expiresAt = now.plus(accessTokenTtl);
         String token = Jwts.builder()
@@ -117,6 +127,7 @@ public class JwtService {
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiresAt))
                 .claim(ROLES_CLAIM, List.of(user.role().name()))
+                .claim(SESSION_EPOCH_CLAIM, sessionEpoch)
                 .signWith(currentKey, Jwts.SIG.HS256)
                 .compact();
         return new IssuedAccessToken(token, accessTokenTtl.toSeconds());
@@ -149,7 +160,18 @@ public class JwtService {
         } catch (NumberFormatException e) {
             throw new InvalidAccessTokenException("Token subject is not an account id");
         }
-        return new AccessTokenClaims(accountId, claims.getId(), claims.getExpiration().toInstant());
+        Object epoch = claims.get(SESSION_EPOCH_CLAIM);
+        int sessionEpoch;
+        if (epoch == null) {
+            // Issued before session epochs existed (V22): such tokens belong to epoch 0.
+            sessionEpoch = 0;
+        } else if ((epoch instanceof Integer || epoch instanceof Long)
+                && ((Number) epoch).longValue() == ((Number) epoch).intValue()) {
+            sessionEpoch = ((Number) epoch).intValue();
+        } else {
+            throw new InvalidAccessTokenException("Token session epoch is not an integer");
+        }
+        return new AccessTokenClaims(accountId, claims.getId(), claims.getExpiration().toInstant(), sessionEpoch);
     }
 
     /** Fingerprint used as {@code kid}: the first 8 bytes of SHA-256 over the key, hex encoded. */
@@ -200,7 +222,12 @@ public class JwtService {
     }
 
     /** Verified content of an access token. */
-    public record AccessTokenClaims(long accountId, String tokenId, Instant expiresAt) {
+    public record AccessTokenClaims(long accountId, String tokenId, Instant expiresAt, int sessionEpoch) {
+
+        /** Claims of a token at session epoch 0. */
+        public AccessTokenClaims(long accountId, String tokenId, Instant expiresAt) {
+            this(accountId, tokenId, expiresAt, 0);
+        }
     }
 
     /** Raised for tokens that parse but violate a rule jjwt does not enforce by itself. */
