@@ -40,7 +40,7 @@ RUN --mount=type=cache,target=/root/.m2 \
     fi; \
     cp target/educore-*.jar /workspace/app.jar
 
-FROM eclipse-temurin:21-jre-alpine@sha256:51ab5e3302e7141ce665ca3ea85e8b5cd648eafbc3c0c90dd79d6537684e4555
+FROM eclipse-temurin:25-jre-alpine@sha256:3c0a9084927a221ccd1d007fcaf614465672c0af37aaa834c5184483afe56d61
 WORKDIR /app
 
 # Fixed non-root uid/gid 10001 so bind-mounted folders (csv_uploads) can be chowned predictably on Linux hosts.
