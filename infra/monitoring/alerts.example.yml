@@ -1,0 +1,171 @@
+# Prometheus alerting rules for EduCore (example set; load with `rule_files:` in prometheus.yml).
+#
+# Scrape target: the backend's Actuator endpoint on the internal management port, e.g.
+#   - job_name: educore
+#     metrics_path: /actuator/prometheus
+#     authorization: { credentials_file: /etc/prometheus/educore-admin.token }   # ADMIN bearer token
+#     static_configs: [{ targets: ["educore-backend:9090"] }]
+# Port 9090 is never published by docker-compose; Prometheus must run inside the compose network.
+#
+# Only metrics the application exposes today are used: Spring MVC http_server_requests_*, JVM
+# (jvm_*, process_*), and HikariCP (hikaricp_*), plus the backup sidecar's textfile metrics
+# (educore_backup_*, last group). Counters for CSV imports and webhook deliveries are
+# added with the ingestion phase (P6); their rules belong in this file once those metrics exist.
+# Thresholds are starting points sized for the compose limits (1 CPU / 1 GB backend); tune them
+# against a week of real traffic. Validate with: promtool check rules infra/monitoring/alerts.example.yml
+
+groups:
+  - name: educore-availability
+    rules:
+      - alert: EduCoreBackendDown
+        expr: up{job="educore"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "EduCore backend scrape target is down"
+          description: "Prometheus has not scraped {{ $labels.instance }} for 2 minutes."
+
+      - alert: EduCoreHigh5xxRate
+        expr: |
+          sum by (instance) (rate(http_server_requests_seconds_count{job="educore", status=~"5.."}[5m]))
+            /
+          sum by (instance) (rate(http_server_requests_seconds_count{job="educore"}[5m]))
+            > 0.05
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "More than 5 % of EduCore requests fail with 5xx"
+          description: "5xx ratio on {{ $labels.instance }} is {{ $value | humanizePercentage }} over 10 minutes."
+
+      - alert: EduCoreAuthFailureSpike
+        expr: |
+          sum by (instance) (rate(http_server_requests_seconds_count{job="educore", uri=~"/api/v1/auth/.*", status=~"401|429"}[5m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sustained 401/429 responses on auth endpoints"
+          description: "{{ $value | humanize }} rejected auth requests per second on {{ $labels.instance }}; check security_event for credential stuffing."
+
+      - alert: EduCoreSlowRequests
+        expr: |
+          sum by (instance) (rate(http_server_requests_seconds_sum{job="educore", uri!~"/actuator.*"}[5m]))
+            /
+          sum by (instance) (rate(http_server_requests_seconds_count{job="educore", uri!~"/actuator.*"}[5m]))
+            > 0.5
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Average EduCore request latency above 500 ms"
+          description: "Mean latency on {{ $labels.instance }} is {{ $value | humanizeDuration }}."
+
+  - name: educore-jvm
+    rules:
+      - alert: EduCoreHeapPressure
+        expr: |
+          sum by (instance) (jvm_memory_used_bytes{job="educore", area="heap"})
+            /
+          sum by (instance) (jvm_memory_max_bytes{job="educore", area="heap"} > 0)
+            > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "EduCore heap above 90 % of its maximum"
+          description: "Heap usage on {{ $labels.instance }} is {{ $value | humanizePercentage }}; the container limit is 1 GB."
+
+      - alert: EduCoreGcOverhead
+        expr: sum by (instance) (rate(jvm_gc_pause_seconds_sum{job="educore"}[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "EduCore spends more than 10 % of wall time in GC pauses"
+          description: "GC pause ratio on {{ $labels.instance }} is {{ $value | humanizePercentage }}."
+
+      - alert: EduCoreCpuSaturated
+        expr: avg by (instance) (process_cpu_usage{job="educore"}) > 0.9
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "EduCore process CPU above 90 % of its allowance"
+          description: "process_cpu_usage on {{ $labels.instance }} is {{ $value | humanizePercentage }}; the compose limit is 1 CPU."
+
+  - name: educore-database-pool
+    rules:
+      - alert: EduCoreDbPoolPending
+        expr: max by (instance, pool) (hikaricp_connections_pending{job="educore"}) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Threads waiting for a database connection"
+          description: "{{ $value }} threads wait for pool {{ $labels.pool }} on {{ $labels.instance }}."
+
+      - alert: EduCoreDbPoolExhausted
+        expr: |
+          max by (instance, pool) (hikaricp_connections_active{job="educore"})
+            >=
+          max by (instance, pool) (hikaricp_connections_max{job="educore"})
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection pool fully in use"
+          description: "Pool {{ $labels.pool }} on {{ $labels.instance }} has no idle connections for 5 minutes."
+
+      - alert: EduCoreDbConnectionTimeouts
+        expr: sum by (instance, pool) (increase(hikaricp_connections_timeout_total{job="educore"}[10m])) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Requests timed out waiting for a database connection"
+          description: "{{ $value }} connection timeouts in 10 minutes on pool {{ $labels.pool }} ({{ $labels.instance }})."
+
+  # Backup sidecar metrics: infra/backup/bin/backup.sh writes /backups/metrics/educore_backup.prom after every
+  # run (success or failure). Expose it with node-exporter's textfile collector, e.g. mount the
+  # educore_backups volume's metrics/ directory read-only and start node-exporter with
+  # --collector.textfile.directory=<that directory>; the rules assume that scrape job is named "node".
+  - name: educore-backup
+    rules:
+      - alert: EduCoreBackupStale
+        expr: time() - max(educore_backup_last_success_timestamp_seconds{job="node"}) > 26 * 3600
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No successful EduCore backup for more than 26 hours"
+          description: "The last complete backup is {{ $value | humanizeDuration }} old; the RPO target is 24 h."
+
+      - alert: EduCoreBackupFailed
+        expr: max(educore_backup_last_run_success{job="node"}) == 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "The most recent EduCore backup run failed"
+          description: "Check `docker compose logs backup`; the previous successful dump is still on disk."
+
+      - alert: EduCoreBackupMetricsMissing
+        expr: absent(educore_backup_last_run_timestamp_seconds{job="node"})
+        for: 26h
+        labels:
+          severity: warning
+        annotations:
+          summary: "No backup metrics are being collected"
+          description: "The textfile collector does not see educore_backup.prom; backups may not be running."
+
+      - alert: EduCoreBackupUploadStale
+        expr: |
+          max(educore_backup_offsite_enabled{job="node"}) == 1
+            and
+          time() - max(educore_backup_last_upload_success_timestamp_seconds{job="node"}) > 26 * 3600
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Off-site backup upload has not succeeded for more than 26 hours"
+          description: "Local dumps may exist, but the S3-compatible copy is {{ $value | humanizeDuration }} old."

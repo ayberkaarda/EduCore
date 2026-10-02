@@ -1,0 +1,74 @@
+# Nightly backup drill (security checklist item 20): start the compose stack with throwaway secrets,
+# take a fresh dump with the backup sidecar, restore it into a throwaway container with
+# scripts/backup/verify-latest.sh, and fail when the restore or the account query fails.
+name: backup-verify
+
+on:
+  schedule:
+    - cron: "40 2 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "infra/backup/**"
+      - "scripts/backup/**"
+      - "docker-compose.yml"
+      - ".github/workflows/backup-verify.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      COMPOSE_FILES: -f docker-compose.yml -f infra/backup/docker-compose.backup.yml
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Every value is generated for this run only and never printed.
+      - name: Write throwaway .env
+        run: |
+          umask 077
+          {
+            echo "SPRING_PROFILES_ACTIVE=dev"
+            echo "EDUCORE_DB_NAME=educore_db"
+            echo "EDUCORE_DB_USERNAME=educore_user"
+            echo "EDUCORE_DB_PASSWORD=$(openssl rand -hex 24)"
+            echo "EDUCORE_JWT_SECRET=$(openssl rand -base64 48 | tr -d '\n')"
+            echo "EDUCORE_LOGIN_PEPPER=$(openssl rand -base64 48 | tr -d '\n')"
+            echo "EDUCORE_ENCRYPTION_KEY=$(openssl rand -base64 32 | tr -d '\n')"
+          } > .env
+
+      # The backend runs the Flyway migrations and the dev seed, so the dump has real schema and rows.
+      - name: Start database and backend
+        run: |
+          # shellcheck disable=SC2086
+          docker compose $COMPOSE_FILES up -d --build --wait --wait-timeout 300 postgres-db educore-backend
+
+      - name: Take a fresh backup with the sidecar
+        run: |
+          # shellcheck disable=SC2086
+          docker compose $COMPOSE_FILES run --rm backup backup-now
+
+      - name: Restore into a throwaway container and check RPO
+        run: scripts/backup/verify-latest.sh --volume educore_backups --max-age-hours 24
+
+      - name: Logs on failure
+        if: failure()
+        run: |
+          # shellcheck disable=SC2086
+          docker compose $COMPOSE_FILES logs --no-color --tail 200
+
+      - name: Tear down
+        if: always()
+        run: |
+          # shellcheck disable=SC2086
+          docker compose $COMPOSE_FILES down -v --remove-orphans
+          rm -f .env

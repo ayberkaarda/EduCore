@@ -1,0 +1,92 @@
+# DAST: OWASP ZAP baseline scan (security checklist item 23) against the production-shaped compose stack
+# (PostgreSQL + backend in the prod profile + TLS edge with a throwaway self-signed certificate).
+# Rules: zap/baseline.conf. The job fails on any High alert or on a FAIL rule (scripts/zap-local.sh).
+name: zap
+
+on:
+  schedule:
+    - cron: "30 3 * * *"
+  push:
+    branches: ["release/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baseline:
+    name: ZAP baseline (fail on High)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Every secret is generated for this run and never printed; the files are removed at the end.
+      - name: Ephemeral secrets and certificate
+        run: |
+          umask 077
+          tls="$RUNNER_TEMP/tls"
+          mkdir -p "$tls"
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 -subj "/CN=localhost" \
+            -addext "subjectAltName=DNS:localhost" \
+            -keyout "$tls/privkey.pem" -out "$tls/fullchain.pem" 2> /dev/null
+          # nginx runs as uid 101 and must read the throwaway key.
+          chmod 0755 "$tls"
+          chmod 0644 "$tls/fullchain.pem" "$tls/privkey.pem"
+          {
+            echo "EDUCORE_DB_NAME=educore_db"
+            echo "EDUCORE_DB_USERNAME=educore_user"
+            echo "EDUCORE_DB_PASSWORD=$(openssl rand -hex 24)"
+            echo "EDUCORE_JWT_SECRET=$(openssl rand -base64 48 | tr -d '\n')"
+            echo "EDUCORE_LOGIN_PEPPER=$(openssl rand -base64 48 | tr -d '\n')"
+            echo "EDUCORE_ENCRYPTION_KEY=$(openssl rand -base64 32 | tr -d '\n')"
+            echo "EDUCORE_SEO_BASE_URL=https://localhost"
+            echo "EDUCORE_BOOTSTRAP_ADMIN_USERNAME=zap-admin"
+            echo "EDUCORE_BOOTSTRAP_ADMIN_PASSWORD=$(openssl rand -base64 24 | tr -d '\n')"
+            echo "EDUCORE_TLS_SOURCE=$tls"
+          } > .env
+
+      # The production overlay builds the edge from the live public API, which does not exist yet in a fresh job,
+      # so the edge image is built with the mock catalog (base compose args) and the stack then starts without a
+      # rebuild. The scan targets the edge, headers and API, which are identical either way.
+      - name: Build images
+        run: |
+          docker compose -f docker-compose.yml build educore-frontend
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml build educore-backend
+
+      - name: Start the stack (prod profile, TLS edge on 80/443)
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build --wait --wait-timeout 400
+
+      - name: ZAP baseline
+        env:
+          ZAP_NETWORK: host
+          ZAP_MINUTES: "3"
+        run: scripts/zap-local.sh https://localhost
+
+      - name: Upload ZAP reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: zap-reports
+          path: |
+            zap/reports/zap-report.html
+            zap/reports/zap-report.json
+            zap/reports/zap-report.md
+          if-no-files-found: ignore
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --no-color --tail 200
+
+      - name: Tear down
+        if: always()
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v --remove-orphans
+          rm -f .env
+          rm -rf "$RUNNER_TEMP/tls"

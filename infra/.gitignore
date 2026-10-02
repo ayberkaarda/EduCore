@@ -1,0 +1,9 @@
+# Terraform working data, state and real variable files never belong in git.
+# terraform.tfvars.example and .terraform.lock.hcl (provider checksums) are committed.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
+*.auto.tfvars
+crash.log

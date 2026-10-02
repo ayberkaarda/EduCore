@@ -18,7 +18,7 @@ keywords = ["password"]
 [[rules.allowlists]]
 description = "Environment placeholder, not a literal"
 regexTarget = "secret"
-regexes = ['''^\$\{[A-Za-z_][A-Za-z0-9_.]*(?::[^}]*)?\}$''']
+regexes = ['''^\$\{[A-Za-z_][A-Za-z0-9_.]*(?::[^}]*)?\}$''', '''^\$\{\{$''']
 
 # Postgres container password written as a literal value in compose files.
 [[rules]]
@@ -31,7 +31,7 @@ keywords = ["postgres_password"]
 [[rules.allowlists]]
 description = "Environment placeholder, not a literal"
 regexTarget = "secret"
-regexes = ['''^\$\{[A-Za-z_][A-Za-z0-9_.]*(?::[^}]*)?\}$''']
+regexes = ['''^\$\{[A-Za-z_][A-Za-z0-9_.]*(?::[^}]*)?\}$''', '''^\$\{\{$''']
 
 # JWT signing key hardcoded in Java source as a hex or base64 string literal.
 [[rules]]
@@ -46,10 +46,9 @@ keywords = ["secret", "signing", "jwt"]
 description = "Generated, vendored and documentation-only paths"
 paths = [
   '''(^|[\\/])node_modules[\\/]''',
-  '''(^|[\\/])target[\\/]''',
+  '''(^|[\\/])target(-[A-Za-z0-9]+)?[\\/]''',
   '''(^|[\\/])dist[\\/]''',
-  '''(^|[\\/])\.git[\\/]''',
-  '''(^|[\\/])package-lock\.json$''',
+  '''(^|[\\/])\.git[\\/]''',  '''(^|[\\/])package-lock\.json$''',
   '''(^|[\\/])\.mvn[\\/]wrapper[\\/]''',
 ]
 

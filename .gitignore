@@ -1,5 +1,7 @@
 ### Build output ###
 target/
+# Per-worker Maven build directories (-DbuildDirName=target-<name>).
+target-*/
 !**/src/main/**/target/
 !**/src/test/**/target/
 build/
@@ -11,6 +13,8 @@ HELP.md
 
 ### Node ###
 node_modules/
+# Lighthouse CI working data (frontend/lighthouserc.cjs).
+frontend/.lighthouseci/
 
 ### Environment and secrets ###
 .env

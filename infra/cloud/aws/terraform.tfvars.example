@@ -1,0 +1,30 @@
+# Example variable values for infra/cloud/aws. Copy to terraform.tfvars (never commit the copy)
+# and replace every value. All keys are documented below and in variables.tf.
+
+# aws_region: API endpoint region for the provider. Budgets are account-wide; us-east-1 is the usual choice.
+aws_region = "us-east-1"
+
+# project_name: prefixes the budget name ("educore-monthly-cost") and is set as the Project tag.
+project_name = "educore"
+
+# monthly_budget_amount: monthly cost limit in USD. Alerts are percentages of this number.
+monthly_budget_amount = 50
+
+# budget_currency: must be USD for AWS cost budgets.
+budget_currency = "USD"
+
+# alert_emails: 1-10 recipients for every alert. Use a team alias rather than a personal inbox.
+alert_emails = ["ops-alerts@example.org"]
+
+# alert_thresholds_percent: actual-spend percentages that send an email (program default 50/80/100).
+alert_thresholds_percent = [50, 80, 100]
+
+# forecast_alert_enabled: also email when AWS forecasts more than 100 % by month end.
+forecast_alert_enabled = true
+
+# cost_filter_tag: restrict the budget to resources carrying an activated cost-allocation tag.
+# Set to null to budget the whole account.
+cost_filter_tag = {
+  key   = "Project"
+  value = "educore"
+}

@@ -1,0 +1,15 @@
+# Trivy suppression file for the supply-chain workflow (.github/workflows/supply-chain.yml).
+#
+# Policy (docs/ops/CI.md, "Suppressions"):
+#   - A finding is suppressed only when EduCore is demonstrably not affected (the vulnerable code path
+#     is not reachable in this application), never because a fix is inconvenient.
+#   - Every entry carries a written statement and an expiry date; it applies to the fs and image scans. After
+#     expiry the finding fails the build again and must be re-assessed or fixed by an upgrade.
+#   - A dependency upgrade that removes the vulnerable version makes the entry obsolete: delete it.
+#
+# History: CVE-2026-65905 and CVE-2026-68525 (Tomcat DIGEST/FORM authenticators, not used by EduCore) were
+# suppressed until tomcat.version 10.1.60 in pom.xml removed the vulnerable version; no finding is
+# suppressed today. A new entry has the keys id, statement (why EduCore is not affected and what
+# removes the finding) and expired_at (at most one quarter ahead).
+
+vulnerabilities: []

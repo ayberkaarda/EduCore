@@ -1,0 +1,191 @@
+# Supply-chain gate (security checklist item 19): secret scan, dependency vulnerabilities, SBOMs and image
+# scans. Scanner choice and suppression policy: docs/ops/CI.md. Third-party actions are pinned by commit SHA,
+# tool images by digest; Dependabot keeps both current.
+#
+# Pushes and pull requests run it through ci.yml (job "security", workflow_call), so it is not triggered
+# by them directly; the weekly schedule re-scans main for newly published CVEs.
+name: supply-chain
+
+on:
+  workflow_call:
+  schedule:
+    # Weekly re-scan: new CVEs appear without any change in this repository.
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supply-chain-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TRIVY_IMAGE: aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
+  SOCAT_IMAGE: alpine/socat@sha256:5ffbd6ae916cbad86a58fabe0d6d5a6fd5c2b47ddf031e82996baac9300e732f
+  GITLEAKS_IMAGE: zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+
+jobs:
+  secrets:
+    name: Secret scan (gitleaks, full history)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # --redact keeps any finding's secret value out of the job log; the rules live in .gitleaks.toml.
+      - name: gitleaks (git history and working tree)
+        run: |
+          # The checkout belongs to the runner user; mark it safe for the container's git.
+          docker run --rm -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo \
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo \
+            "$GITLEAKS_IMAGE" git --config /repo/.gitleaks.toml --redact --no-banner --exit-code 1 /repo
+          docker run --rm -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo \
+            "$GITLEAKS_IMAGE" dir --config /repo/.gitleaks.toml --redact --no-banner --exit-code 1 /repo
+
+  backend-dependencies:
+    name: Backend dependencies (Trivy fs, CycloneDX)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      # Trivy reads ~/.m2 to resolve the dependency tree; a populated cache avoids hundreds of
+      # anonymous requests to Maven Central (which answers with HTTP 429 and blocks the runner IP).
+      - name: Resolve dependencies into the local repository
+        run: ./mvnw -B -ntp dependency:resolve
+
+      - name: CycloneDX SBOM (Maven)
+        run: ./mvnw -B -ntp cyclonedx:makeBom
+
+      - name: Upload Maven SBOM
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-maven
+          path: target/bom.json
+          if-no-files-found: error
+
+      - name: Trivy fs (fail on HIGH/CRITICAL, i.e. CVSS >= 7)
+        run: |
+          mkdir -p "$RUNNER_TEMP/trivy-cache"
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src:ro" \
+            -v "$HOME/.m2:/root/.m2:ro" \
+            -v "$RUNNER_TEMP/trivy-cache:/root/.cache/trivy" \
+            "$TRIVY_IMAGE" fs \
+              --scanners vuln \
+              --severity HIGH,CRITICAL \
+              --exit-code 1 \
+              --ignorefile /src/.github/trivy/trivyignore.yaml \
+              --skip-dirs /src/frontend/node_modules \
+              --skip-dirs /src/target \
+              --no-progress \
+              /src
+
+  frontend:
+    name: Frontend dependencies (npm audit, CycloneDX)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install (lockfile only)
+        run: npm ci --no-fund
+
+      - name: CycloneDX SBOM (npm, runtime dependencies)
+        run: npx --no-install cyclonedx-npm --omit dev --output-format JSON --output-file "$RUNNER_TEMP/bom.npm.json"
+
+      - name: Upload npm SBOM
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-npm
+          path: ${{ runner.temp }}/bom.npm.json
+          if-no-files-found: error
+
+      # Lint, typecheck, tests and build run in ci.yml (job "frontend").
+      - name: npm audit (runtime dependencies, high and above)
+        run: npm audit --omit=dev --audit-level=high
+
+  images:
+    name: Image ${{ matrix.image }} (build, non-root check, Trivy image)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [backend, frontend, backup]
+    env:
+      IMAGE: educore-${{ matrix.image }}:ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The backend Dockerfile runs `mvn verify`; its Testcontainers tests need a Docker daemon. A RUN step
+      # cannot mount the socket, so it is exposed on a random loopback port for the duration of the build
+      # and the build uses host networking (docs/ops/CI.md). The runner is ephemeral.
+      - name: Build backend image with tests
+        if: matrix.image == 'backend'
+        run: |
+          port=$((30000 + RANDOM % 20000))
+          docker run -d --name docker-tcp-proxy --network host \
+            -v /var/run/docker.sock:/var/run/docker.sock "$SOCAT_IMAGE" \
+            "TCP-LISTEN:${port},bind=127.0.0.1,fork,reuseaddr" UNIX-CONNECT:/var/run/docker.sock
+          trap 'docker rm -f docker-tcp-proxy >/dev/null' EXIT
+          docker buildx build --load --network host --allow network.host \
+            --build-arg SKIP_TESTS=false \
+            --build-arg "TESTCONTAINERS_DOCKER_HOST=tcp://127.0.0.1:${port}" \
+            -t "$IMAGE" .
+
+      - name: Build frontend image
+        if: matrix.image == 'frontend'
+        # Mock catalog: the scan covers the image layers, not deployment-specific content (docs/ops/CI.md).
+        run: docker build --build-arg BUILD_SCRIPT=build:mock -t "$IMAGE" frontend
+
+      - name: Build backup sidecar image
+        if: matrix.image == 'backup'
+        run: docker build -t "$IMAGE" infra/backup
+
+      - name: Container user is not root
+        run: |
+          uid="$(docker run --rm --entrypoint id "$IMAGE" -u)"
+          echo "uid=${uid}"
+          test "$uid" != "0"
+
+      - name: Trivy image (fail on fixable HIGH/CRITICAL)
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$GITHUB_WORKSPACE/.github/trivy:/cfg:ro" \
+            "$TRIVY_IMAGE" image \
+              --scanners vuln \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --exit-code 1 \
+              --ignorefile /cfg/trivyignore.yaml \
+              --no-progress \
+              "$IMAGE"

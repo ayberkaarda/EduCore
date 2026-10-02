@@ -1,0 +1,15 @@
+# Local development override: publishes PostgreSQL and the backend API on the loopback interface only,
+# for database tools, `./mvnw spring-boot:run` against the compose database, and direct API calls.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# Never use this file on a shared or internet-facing host; there only the frontend (port 3000) is published.
+
+services:
+  postgres-db:
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  educore-backend:
+    ports:
+      - "127.0.0.1:8081:8080"

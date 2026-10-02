@@ -1,0 +1,32 @@
+# Example variable values for infra/cloud/gcp. Copy to terraform.tfvars (never commit the copy)
+# and replace every value. All keys are documented below and in variables.tf.
+
+# project_id: the Google Cloud project that runs EduCore. The budget only counts this project's spend.
+project_id = "educore-prod-REMOVED-DB-PASSWORD56"
+
+# region: provider default region (budgets themselves are global).
+region = "europe-west1"
+
+# billing_account_id: billing account paying for project_id (Billing > Account management).
+billing_account_id = "0REMOVED-DB-PASSWORD5-6789AB-CDEF01"
+
+# project_name: used in the budget display name and in notification channel names.
+project_name = "educore"
+
+# monthly_budget_amount: whole currency units per calendar month.
+monthly_budget_amount = 50
+
+# budget_currency: must match the billing account currency, or the API rejects the budget.
+budget_currency = "USD"
+
+# alert_emails: 1-5 recipients; each becomes an email notification channel (Google sends a verification mail).
+alert_emails = ["ops-alerts@example.org"]
+
+# alert_thresholds_percent: current-spend percentages that send an alert (program default 50/80/100).
+alert_thresholds_percent = [50, 80, 100]
+
+# forecast_alert_enabled: also alert when forecasted spend passes 100 %.
+forecast_alert_enabled = true
+
+# notify_billing_admins: keep Google's default emails to billing administrators as well.
+notify_billing_admins = true

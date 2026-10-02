@@ -1,0 +1,82 @@
+# Backup sidecar, used as an override on top of the main compose file:
+#
+#   docker compose -f docker-compose.yml -f infra/backup/docker-compose.backup.yml up -d backup
+#   docker compose -f docker-compose.yml -f infra/backup/docker-compose.backup.yml run --rm backup backup-now
+#
+# Relative paths resolve against the project directory (the repository root, where docker-compose.yml lives).
+# Variables come from the same .env file; BACKUP_* settings are optional and documented in
+# docs/ops/BACKUP_RESTORE.md.
+
+services:
+  backup:
+    build:
+      context: ./infra/backup
+      dockerfile: Dockerfile
+    image: educore-backup:local
+    container_name: educore-backup
+    restart: unless-stopped
+    environment:
+      TZ: ${BACKUP_TZ:-UTC}
+      PGHOST: postgres-db
+      PGPORT: "5432"
+      PGDATABASE: ${EDUCORE_DB_NAME:?required}
+      PGUSER: ${EDUCORE_DB_USERNAME:?required}
+      # The password is not passed as PGPASSWORD (visible to every process): it arrives as the
+      # educore_db_password secret file and the entrypoint turns it into a mode-0600 PGPASSFILE.
+      BACKUP_DB_PASSWORD_FILE: /run/secrets/educore_db_password
+      BACKUP_MAX_AGE_HOURS: ${BACKUP_MAX_AGE_HOURS:-26}
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
+      BACKUP_RUN_ON_START: ${BACKUP_RUN_ON_START:-false}
+      BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-14}
+      BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-8}
+      BACKUP_KEEP_CSV: ${BACKUP_KEEP_CSV:-14}
+      # Off by default: processed CSV files hold names and student numbers (docs/ops/DATA_RETENTION.md).
+      BACKUP_ARCHIVE_CSV: ${BACKUP_ARCHIVE_CSV:-false}
+      BACKUP_CSV_DONE_DIR: /data/csv_uploads/done
+      BACKUP_LEDGER_FILE: /data/erasure-ledger/erasure-ledger.log
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      BACKUP_S3_REGION: ${BACKUP_S3_REGION:-}
+      BACKUP_S3_PREFIX: ${BACKUP_S3_PREFIX:-educore}
+      BACKUP_S3_PROVIDER: ${BACKUP_S3_PROVIDER:-Other}
+      BACKUP_S3_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID:-}
+      BACKUP_S3_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY:-}
+    secrets:
+      - educore_db_password
+    volumes:
+      - backups:/backups
+      - ./csv_uploads/done:/data/csv_uploads/done:ro
+      # The erasure ledger volume of the backend (docker-compose.yml), read-only: a dated copy goes with the dumps.
+      - erasure_ledger:/data/erasure-ledger:ro
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    # Unhealthy when the last complete backup is older than BACKUP_MAX_AGE_HOURS (also set in the image).
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/backup-health.sh"]
+      interval: 5m
+      timeout: 10s
+      start_period: 1m
+      retries: 1
+    networks:
+      - educore-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+secrets:
+  educore_db_password:
+    # Compose writes the value of EDUCORE_DB_PASSWORD (from .env) into /run/secrets/educore_db_password.
+    environment: EDUCORE_DB_PASSWORD
+
+volumes:
+  backups:
+    # Fixed name so scripts/backup/verify-latest.sh finds it regardless of the compose project name.
+    name: educore_backups

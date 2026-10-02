@@ -1,0 +1,9 @@
+# Backend build context: the Dockerfile only needs pom.xml and src/.
+# Everything else is excluded to keep the context small and secrets out of the image.
+**
+!pom.xml
+!src/
+src/**/*.iml
+# Env files never enter the context, even if one is placed under src/.
+**/.env
+**/.env.*

@@ -1,0 +1,59 @@
+# Weekly dependency, base-image digest and GitHub Actions updates (docs/ops/CI.md).
+# Minor and patch updates are grouped per ecosystem to keep the PR count reviewable; major
+# updates arrive as individual PRs because they need a changelog review.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      maven-minor-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "build(deps)"
+
+  - package-ecosystem: npm
+    directory: "/frontend"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "build(deps)"
+
+  # Base images are pinned by digest; Dependabot proposes new digests and tags.
+  - package-ecosystem: docker
+    directories:
+      - "/"
+      - "/frontend"
+      - "/infra/backup"
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "build(docker)"
+
+  - package-ecosystem: docker-compose
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "build(docker)"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci(deps)"
