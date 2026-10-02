@@ -24,7 +24,7 @@
 		<jacoco.version>0.8.15</jacoco.version>
 		<bucket4j.version>8.20.0</bucket4j.version>
 		<archunit.version>1.4.1</archunit.version>
-		<springdoc.version>2.8.17</springdoc.version>
+		<springdoc.version>3.1.1</springdoc.version>
 		<buildDirName>target</buildDirName>
 		<!-- P10 attacker-mode suite (src/test/java/com/educore/attacks/**, JUnit tag "attack").
 		     Excluded from the default build so a succeeding attack (a real vulnerability) fails only the
