@@ -1,0 +1,8 @@
+# Optional profile: production log format (one ECS JSON object per line) outside 'prod', e.g.
+# SPRING_PROFILES_ACTIVE=dev,json-logs to test a log pipeline locally. logback-spring.xml selects the JSON
+# appender for 'prod' and 'json-logs'; docs/security/LOGGING.md.
+
+logging:
+  structured:
+    format:
+      console: ecs

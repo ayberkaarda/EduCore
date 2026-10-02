@@ -1,6 +1,11 @@
 # Automated test profile. The PostgreSQL connection is provided by Testcontainers (@ServiceConnection).
 
 spring:
+  datasource:
+    hikari:
+      # Many test classes keep their own cached application context against the one shared PostgreSQL
+      # container; small pools keep the total below the server's connection limit.
+      maximum-pool-size: 6
   flyway:
     locations: classpath:db/migration,classpath:db/seed/dev
 
@@ -17,5 +22,29 @@ educore:
   cors:
     allowed-origins: http://localhost:3000
   ingestion:
-    # Keep the CSV poller away from the repository's csv_uploads folder during tests.
-    base-dir: target/test-csv-uploads
+    # A fresh folder under the system temp directory per application context, away from the repository's
+    # csv_uploads folder. The poller is off; the ingestion tests start it in their own context.
+    base-dir: ${java.io.tmpdir}/educore-test-csv/${random.uuid}
+    poller-enabled: false
+    # IngestionRetentionIT runs the cleanup itself.
+    retention-cron: "-"
+  ratelimit:
+    # Every MockMvc request comes from 127.0.0.1 unless a test sets another peer; the integration tests send
+    # far more than 60 requests per minute. RateLimitIT sets the production values in its own context.
+    anonymous-per-minute: 100000
+    authenticated-per-minute: 100000
+    public-per-minute: 100000
+  ipaccess:
+    auto-deny:
+      # Many tests fail logins on purpose; AutoDenyIT sets the production threshold in its own context.
+      failures: 100000
+  webhook:
+    # No scheduled sends in tests (subscriptions point at example hosts); the webhook tests call the dispatcher.
+    dispatcher-enabled: false
+  crypto:
+    # TEST DATA ONLY: base64 of the ASCII text "educore-test-only-encryption-key" (32 bytes).
+    encryption-key: ZWR1Y29yZS10ZXN0LW9ubHktZW5jcnlwdGlvbi1rZXk= # gitleaks:allow
+  lifecycle:
+    # No scheduled purge or retention runs in tests; AccountLifecycleIT and RetentionJobIT call the jobs.
+    purge-cron: "-"
+    retention-cron: "-"

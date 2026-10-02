@@ -9,8 +9,17 @@ spring:
     ignore-migration-patterns: "*:future,repeatable:missing"
   datasource:
     url: ${EDUCORE_DB_URL}
-    username: ${EDUCORE_DB_USERNAME}
-    password: ${EDUCORE_DB_PASSWORD}
+    # The least-privilege runtime role (educore.database.pool.* in application.yml); Flyway migrates as
+    # EDUCORE_DB_MIGRATION_USERNAME.
+    username: ${educore.database.pool.user}
+    password: ${educore.database.pool.secret}
+
+logging:
+  structured:
+    format:
+      # One Elastic Common Schema JSON object per line (logback-spring.xml selects the JSON appender for this
+      # profile); docs/security/LOGGING.md.
+      console: ecs
 
 educore:
   security:
@@ -18,9 +27,19 @@ educore:
       secret: ${EDUCORE_JWT_SECRET}
     login:
       username-pepper: ${EDUCORE_LOGIN_PEPPER}
+    https:
+      # Plain HTTP (no TLS and no X-Forwarded-Proto: https from a trusted proxy) answers 403
+      # request/https-required; responses carry HSTS. The reverse proxy must be listed in
+      # EDUCORE_IPACCESS_TRUSTED_PROXIES (docs/security/HEADERS.md).
+      required: true
+  crypto:
+    encryption-key: ${EDUCORE_ENCRYPTION_KEY}
   cors:
     # Empty by default: in production the SPA and the API share one origin behind the reverse proxy.
     allowed-origins: ${EDUCORE_CORS_ALLOWED_ORIGINS:}
+  seo:
+    # Required in prod, no default: an https origin that is not localhost (ProdStartupGuard checks both).
+    base-url: ${EDUCORE_SEO_BASE_URL}
   bootstrap:
     admin:
       # The first ADMIN is created from these when no ADMIN exists; it must change its password.

@@ -11,8 +11,9 @@ spring:
 
   datasource:
     url: ${EDUCORE_DB_URL}
-    username: ${EDUCORE_DB_USERNAME}
-    password: ${EDUCORE_DB_PASSWORD}
+    # Runtime role (DML only, infra/postgres/app-role.sql), resolved in educore.database below.
+    username: ${educore.database.pool.user}
+    password: ${educore.database.pool.secret}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -40,11 +41,65 @@ spring:
     job:
       enabled: false
 
+  cloud:
+    openfeign:
+      client:
+        config:
+          # Weather provider (com.educore.weather.WeatherClient): fail fast, the service falls back to the cache.
+          weatherClient:
+            connect-timeout: 3000
+            read-timeout: 3000
+            follow-redirects: false
+
+  task:
+    scheduling:
+      # Shared by the CSV inbox poller (runs whole import jobs) and the webhook dispatcher; one thread each
+      # plus a spare, so a long import never delays webhook deliveries.
+      pool:
+        size: 3
+      thread-name-prefix: scheduling-
+
+  # Upload limits (S7). Larger multipart requests are rejected by the container with 413 before a controller
+  # runs; the CSV ingestion limits (educore.ingestion.*) apply to every file, however it arrives.
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
 server:
+  # Tomcat's RemoteIpValve applies X-Forwarded-For / X-Forwarded-Proto, but only from the peers listed in
+  # educore.ipaccess.trusted-proxies (ForwardedHeadersConfig replaces the valve's default private-range list);
+  # with no trusted proxy configured the headers are ignored. docs/security/HEADERS.md.
+  forward-headers-strategy: native
+  # Request line plus all headers; a larger request is rejected with 400.
+  max-http-request-header-size: 16KB
   error:
     include-message: never
     include-stacktrace: never
     include-binding-errors: never
+  tomcat:
+    # application/x-www-form-urlencoded bodies (the API itself only accepts JSON and multipart).
+    max-http-form-post-size: 1MB
+    # Bytes of an aborted upload Tomcat still reads to keep the connection; beyond it the connection is closed.
+    max-swallow-size: 2MB
+
+# Console logging; the appender selection (JSON in 'prod' and 'json-logs', pattern elsewhere) is in
+# logback-spring.xml. docs/security/LOGGING.md lists what is logged, masked and never logged.
+logging:
+  pattern:
+    # Prefix of every human-readable line: [requestId,userId] from the MDC (empty outside a request).
+    correlation: "[%X{requestId:-},%X{userId:-}] "
+  structured:
+    json:
+      customizer: com.educore.common.logging.PiiMaskingJsonCustomizer
+      stacktrace:
+        root: first
+        max-length: 8192
+        include-common-frames: false
+  level:
+    # SQL text and bind parameters are never logged.
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
 
 # Actuator is served on its own port (not published by docker-compose).
 # /actuator/health is open; every other endpoint requires an ADMIN token (see SecurityConfig).
@@ -82,6 +137,87 @@ educore:
       ttl: 14d
       # The refresh cookie is Secure everywhere except the dev profile (plain HTTP on localhost).
       cookie-secure: true
-  # Other educore.* settings have defaults in EduCoreProperties. Environment variables bind by name,
-  # e.g. EDUCORE_CORS_ALLOWED_ORIGINS -> educore.cors.allowed-origins and
-  # EDUCORE_BOOTSTRAP_ADMIN_USERNAME / _PASSWORD -> educore.bootstrap.admin.username / password.
+  ingestion:
+    # CSV ingestion limits (same values as the EduCoreProperties defaults): bytes and data rows per file.
+    max-bytes: 20MB
+    max-rows: 50000
+    # Erasure of processed files (docs/ops/DATA_RETENTION.md): 0 deletes the CSV of a SUCCEEDED/PARTIAL import
+    # right after it (only hash, metadata, counts and masked rows stay in the database); FAILED/rejected files and
+    # their reports are deleted after retain-failed-days by the hourly cleanup (cron in UTC, "-" disables it).
+    retain-processed-days: 0
+    retain-failed-days: 7
+    retention-cron: "0 20 * * * *"
+  crypto:
+    # Base64 of a 32-byte AES-256 key encrypting webhook secrets at rest. Required in prod; outside prod a
+    # random per-process key is used when unset (stored webhook secrets are then lost on restart).
+    encryption-key: ${EDUCORE_ENCRYPTION_KEY:}
+  ipaccess:
+    # Reverse proxies (IPv4 addresses or CIDR blocks, comma-separated in EDUCORE_IPACCESS_TRUSTED_PROXIES)
+    # whose X-Forwarded-For / X-Forwarded-Proto headers are honoured. Unset or empty (default): no proxy is
+    # trusted. Bound explicitly so the documented variable name works (EduCorePropertiesTest proves it).
+    trusted-proxies: ${EDUCORE_IPACCESS_TRUSTED_PROXIES:}
+    # Broadest CIDR accepted as a trusted proxy; 0.0.0.0/0 and anything broader fail startup.
+    min-trusted-prefix: 8
+    # ALLOW: native IPv6 clients pass (IPv4 rules do not apply; rate limits per /64). DENY: 403.
+    ipv6-policy: ALLOW
+    # Deny rules are cached in memory and reloaded at least this often (every admin change reloads at once).
+    deny-cache-ttl: 60s
+    cleanup-interval: 10m
+    auto-deny:
+      # 20 failed logins from one client IP within 10 minutes deny that IP for 1 hour (docs/security/IP_ACCESS.md).
+      enabled: true
+      failures: 20
+      window: 10m
+      duration: 1h
+  ratelimit:
+    # Requests per minute: per client IP without a valid access token, per account with one, per client IP on
+    # /api/v1/public/**. POST /api/v1/auth/login keeps educore.security.login.ip-attempts-per-minute.
+    enabled: true
+    anonymous-per-minute: 60
+    authenticated-per-minute: 300
+    public-per-minute: 120
+    max-tracked-keys: 100000
+    # Shared by callers that get no bucket of their own while the store is full (buckets are never evicted).
+    overflow-per-minute: 1000
+  lifecycle:
+    # Account deletion, retention and export (docs/ops/DATA_RETENTION.md). DELETE /api/v1/me starts a grace
+    # period of grace-days; AccountPurgeJob then hard-deletes the account (cron in UTC, "-" disables it).
+    grace-days: 30
+    purge-cron: "0 30 3 * * *"
+    purge-batch-size: 500
+    # RetentionJob deletes login_attempt and security_event rows older than these ages.
+    retention-cron: "0 0 4 * * *"
+    retention-days:
+      login-attempts: 90
+      security-events: 365
+    # GET /api/v1/me/export per account and minute; newest own security events included.
+    export-per-minute: 1
+    export-max-security-events: 10000
+    # Append-only erasure ledger on a volume that is not part of the database dump (docs/ops/BACKUP_RESTORE.md);
+    # a restored old dump replays it. Required in prod; empty disables the file (the table is always written).
+    erasure-ledger-file: ${EDUCORE_ERASURE_LEDGER_FILE:}
+  database:
+    # Connection pool role: docker-compose passes the least-privilege EDUCORE_DB_APP_*; a local run with a single
+    # database user may keep using EDUCORE_DB_USERNAME / EDUCORE_DB_PASSWORD.
+    pool:
+      user: ${EDUCORE_DB_APP_USERNAME:${EDUCORE_DB_USERNAME}}
+      secret: ${EDUCORE_DB_APP_PASSWORD:${EDUCORE_DB_PASSWORD}}
+    # Owner role Flyway migrates with; the pool then uses the runtime role above. Both or neither; required in prod
+    # and distinct from the runtime role (ProdStartupGuard).
+    migration-username: ${EDUCORE_DB_MIGRATION_USERNAME:}
+    migration-password: ${EDUCORE_DB_MIGRATION_PASSWORD:}
+  # Every EDUCORE_* variable documented in .env.example and passed by docker-compose*.yml is bound by an explicit
+  # placeholder here (never by relaxed-binding name guessing); EnvironmentVariableBindingTest enforces it.
+  cors:
+    # Comma-separated browser origins (dev and prod refine the default in their profile files).
+    allowed-origins: ${EDUCORE_CORS_ALLOWED_ORIGINS:}
+  seo:
+    # Public origin of the site (sitemaps, site facts, allowed Origin of refresh/logout). prod requires an https
+    # origin that is not localhost (ProdStartupGuard).
+    base-url: ${EDUCORE_SEO_BASE_URL:http://localhost:3000}
+  bootstrap:
+    admin:
+      # First ADMIN, created only when no ADMIN exists; both or neither (required in prod).
+      username: ${EDUCORE_BOOTSTRAP_ADMIN_USERNAME:}
+      password: ${EDUCORE_BOOTSTRAP_ADMIN_PASSWORD:}
+  # Other educore.* settings have defaults in EduCoreProperties.

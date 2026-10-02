@@ -13,8 +13,8 @@ INSERT INTO course (name, term, instructor) VALUES
     ('Fundamentals of AI', '2026/2', 'Instructor Delta')
 ON CONFLICT DO NOTHING;
 
-INSERT INTO account (username, password, first_name, last_name, student_number, role, deleted) VALUES
-    ('admin', '$2a$10$tHaHKcM5Ya/ZlhnyaVimVOzROlbmEUb.IJa2GbitjbErBngyV5G.a', 'Admin', 'Bey', '9000001', 'ADMIN', 0),
-    ('ayberk', '$2a$10$SYmfoxlKNNHzbN.EsZK/8OViTByf6F9m.kt4/S.PAl2VD31suwA1i', 'Demo', 'Student', '9000002', 'USER', 0),
-    ('ali', '$2a$10$aGce0Re.8Ds8APZ84v9rP.nu9WF.wsXWq6RlbekyPoftj6f5cFNOi', 'Ali', 'Yilmaz', '9000003', 'USER', 0)
+INSERT INTO account (username, password, first_name, last_name, student_number, role) VALUES
+    ('admin', '$2a$10$tHaHKcM5Ya/ZlhnyaVimVOzROlbmEUb.IJa2GbitjbErBngyV5G.a', 'Admin', 'Bey', '9000001', 'ADMIN'),
+    ('ayberk', '$2a$10$SYmfoxlKNNHzbN.EsZK/8OViTByf6F9m.kt4/S.PAl2VD31suwA1i', 'Demo', 'Student', '9000002', 'USER'),
+    ('ali', '$2a$10$aGce0Re.8Ds8APZ84v9rP.nu9WF.wsXWq6RlbekyPoftj6f5cFNOi', 'Ali', 'Yilmaz', '9000003', 'USER')
 ON CONFLICT DO NOTHING;

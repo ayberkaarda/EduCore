@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Console logging (docs/security/LOGGING.md).
+  - Profiles 'prod' and 'json-logs': one JSON object per line in the format named by
+    logging.structured.format.console (ECS), masked by com.educore.common.logging.PiiMaskingJsonCustomizer
+    (logging.structured.json.customizer).
+  - Every other profile (dev, test): Spring Boot's human-readable pattern, with the message (%m) and the stack
+    trace (%wEx) masked by PiiMaskingConverter / PiiMaskingThrowableConverter and a [requestId,userId] prefix
+    (logging.pattern.correlation).
+  Levels stay configurable with logging.level.*.
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <conversionRule conversionWord="m" class="com.educore.common.logging.PiiMaskingConverter"/>
+    <conversionRule conversionWord="msg" class="com.educore.common.logging.PiiMaskingConverter"/>
+    <conversionRule conversionWord="message" class="com.educore.common.logging.PiiMaskingConverter"/>
+    <conversionRule conversionWord="wEx" class="com.educore.common.logging.PiiMaskingThrowableConverter"/>
+
+    <springProfile name="prod | json-logs">
+        <include resource="org/springframework/boot/logging/logback/structured-console-appender.xml"/>
+    </springProfile>
+    <springProfile name="!(prod | json-logs)">
+        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+    </springProfile>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

@@ -13,3 +13,12 @@ educore:
   cors:
     # The Vite dev server and the compose frontend are served from http://localhost:3000.
     allowed-origins: ${EDUCORE_CORS_ALLOWED_ORIGINS:http://localhost:3000}
+
+# OpenAPI document (/v3/api-docs, /v3/api-docs.yaml) and Swagger UI (/swagger-ui.html) exist only in this
+# profile; every other profile keeps both disabled (OpenApiConfig, springdoc-defaults.properties).
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+  writer-with-order-by-keys: true
