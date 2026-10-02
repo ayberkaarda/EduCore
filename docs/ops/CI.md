@@ -157,7 +157,14 @@ Both images are multi-stage, built from source, pinned by digest and run as non-
 |---|---|---|---|
 | `Dockerfile` (backend) | `maven:3.9-eclipse-temurin-21` | `eclipse-temurin:21-jre-alpine` | uid 10001 `educore` |
 | `frontend/Dockerfile` | `node:22-alpine`, `npm ci`, `npm run build` (output `dist/client`) | `nginxinc/nginx-unprivileged:1.30-alpine`, port 8080 | uid 101 `nginx` |
-| `infra/backup/Dockerfile` | n/a | `postgres:15-alpine` + supercronic + rclone | uid 70 `postgres` |
+| `infra/backup/Dockerfile` | n/a | `postgres:15-alpine` + supercronic + rclone (Alpine packages), base image's `gosu` removed | uid 70 `postgres` |
+
+The backup sidecar deletes `/usr/local/bin/gosu` from the `postgres` base image: the base ships it only for the
+root-to-`postgres` step-down in `docker-entrypoint.sh`, which the sidecar never runs (`USER postgres`, own entrypoint).
+gosu 1.19, the latest upstream release, is built with go1.24.6 and carries Go standard-library CVEs (e.g.
+CVE-2025-68121, CVE-2026-56860 `net/url`, CVE-2026-56862 `crypto/tls`) that failed the image gate. supercronic
+(0.2.49) and rclone (1.74.1) come from Alpine 3.24 packages, rebuilt by Alpine with a current Go, and scan clean; no
+suppression was added. Revisit if the sidecar ever needs to start as root.
 
 `.dockerignore` in the repository root (allow-list: `pom.xml`, `src/`; `.env`/`.env.*` excluded even under `src/`) and in
 `frontend/` (excludes `node_modules`, build output and every `.env`/`.env.*` except `.env.example`) keep the contexts
