@@ -1,33 +1,72 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "react-router dev",
+    "build": "react-router build && node scripts/postbuild-public.mjs && node scripts/externalize-inline-scripts.mjs && node scripts/generate-seo-files.mjs && node scripts/check-seo.mjs",
+    "build:mock": "node scripts/build-mock.mjs",
+    "mock:public-api": "node scripts/mock-public-api.mjs",
+    "serve:dist": "node scripts/serve-dist.mjs",
+    "lighthouse": "lhci autorun --config=lighthouserc.cjs",
+    "og-images": "node scripts/generate-og-images.mjs",
+    "preview": "vite preview",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "typecheck": "tsc",
+    "test": "vitest run",
+    "test:e2e": "playwright test --project=e2e",
+    "test:prerender":"vitest run --config tests/prerender/vitest.config.ts",
+    "test:watch": "vitest"
   },
   "dependencies": {
-    "axios": "^1.18.1",
+    "@fontsource/ibm-plex-mono": "^5.0.0",
+    "@fontsource/ibm-plex-sans": "^5.0.0",
+    "@hookform/resolvers": "^5.9.1",
+    "@react-router/node": "^7.18.4",
+    "@tanstack/react-query": "^5.104.0",
+    "axios": "^1.20.0",
+    "isbot": "^5.2.2",
     "lucide-react": "^1.23.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-hot-toast": "^2.6.0",
-    "react-router-dom": "^7.18.1",
-    "@fontsource/ibm-plex-sans": "^5.0.0",
-    "@fontsource/ibm-plex-mono": "^5.0.0"
+    "react-hook-form": "^7.89.0",
+    "react-router": "^7.18.4",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@cyclonedx/cyclonedx-npm": "^6.0.1",
     "@eslint/js": "^10.0.1",
+    "@lhci/cli": "^0.15.1",
+    "@playwright/test": "^1.63.0",
+    "@react-router/dev": "^7.18.4",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/node": "^22.20.4",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "eslint": "^10.6.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^17.7.0",
-    "vite": "^8.1.1"
+    "jsdom": "^30.1.1",
+    "msw": "^3.0.1",
+    "schema-dts": "^2.0.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.71.0",
+    "vite": "^8.1.1",
+    "vitest": "^5.0.3"
+  },
+  "overrides": {
+    "eslint-plugin-jsx-a11y": {
+      "eslint": "$eslint"
+    }
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

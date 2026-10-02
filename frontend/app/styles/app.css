@@ -1,0 +1,149 @@
+/* Rules added with the framework-mode migration (P8). Tokens come from tokens.css. */
+
+/* Toasts: rendered by app/components/Toaster.tsx (no runtime-injected style elements, CSP style-src 'self'). */
+.toast-region {
+  position:fixed;
+  right:16px;
+  bottom:16px;
+  z-index:var(--z-toast);
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin:0;
+  padding:0;
+  list-style:none;
+  pointer-events:none
+}
+.brand-toast {
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  max-width:360px;
+  padding:12px;
+  background:var(--color-surface-raised);
+  color:var(--color-text);
+  border:1px solid var(--color-border);
+  border-radius:8px;
+  box-shadow:var(--shadow-2);
+  font-family:var(--font-sans);
+  font-size:14px;
+  line-height:1.4;
+  pointer-events:auto
+}
+.brand-toast .toast-message {
+  flex:1;
+  overflow-wrap:anywhere
+}
+.brand-toast .toast-dismiss {
+  width:24px;
+  height:24px;
+  padding:0;
+  border:0;
+  border-radius:6px;
+  background:transparent;
+  color:var(--color-text-secondary);
+  display:grid;
+  place-items:center
+}
+
+/* Field-level validation messages (react-hook-form + zod, and server `errors[]`). */
+.field-error {
+  font-size:12px;
+  color:var(--color-danger-text);
+  margin:8px 0 0
+}
+.policy-list {
+  margin:0 0 16px;
+  padding-left:20px;
+  color:var(--color-danger-text);
+  font-size:14px
+}
+.policy-list li+li {
+  margin-top:4px
+}
+.visually-hidden {
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  overflow:hidden;
+  clip-path:inset(50%);
+  white-space:nowrap;
+  border:0
+}
+
+/* Full-page loading state while the session is restored from the refresh cookie. */
+.page-loading {
+  min-height:100dvh;
+  display:grid;
+  place-items:center;
+  color:var(--color-text-secondary)
+}
+
+/* Static landing page (prerendered "/"; replaced by the public surface in a later phase). */
+.landing {
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:24px;
+  width:min(640px,100%);
+  margin:0 auto;
+  padding:48px 24px
+}
+.landing h1 {
+  font-size:var(--text-3xl);
+  font-weight:600;
+  line-height:1.2;
+  letter-spacing:-.02em
+}
+.landing p {
+  color:var(--color-text-secondary);
+  max-width:56ch
+}
+.landing .btn-primary {
+  align-self:flex-start
+}
+.landing footer {
+  font-size:12px;
+  color:var(--color-text-muted)
+}
+.access-denied h2 {
+  margin-bottom:8px
+}
+.access-denied p {
+  margin-bottom:16px
+}
+
+/* CSP-safe column widths for dense administration tables. */
+.admin-rules-table .admin-col-9 {
+  width: 9%;
+}
+.admin-rules-table .admin-col-10 {
+  width: 10%;
+}
+.admin-rules-table .admin-col-11 {
+  width: 11%;
+}
+.admin-rules-table .admin-col-12 {
+  width: 12%;
+}
+.admin-rules-table .admin-col-13 {
+  width: 13%;
+}
+.admin-rules-table .admin-col-14 {
+  width: 14%;
+}
+.admin-rules-table .admin-col-17 {
+  width: 17%;
+}
+.admin-rules-table .admin-col-18 {
+  width: 18%;
+}
+.admin-rules-table .admin-col-24 {
+  width: 24%;
+}
+.admin-rules-table .admin-col-30 {
+  width: 30%;
+}

@@ -26,3 +26,12 @@ dist-ssr
 /data
 *.db
 *.mv.db
+# React Router framework mode (generated types and build output)
+.react-router
+build
+coverage
+# Playwright end-to-end runs (tests/e2e): HTML report, traces and failure screenshots
+playwright-report
+test-results
+blob-report
+playwright/.cache

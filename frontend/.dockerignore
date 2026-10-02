@@ -1,0 +1,18 @@
+# Frontend build context: sources and lockfile only. Dependencies are installed with `npm ci`
+# inside the image, so the host's node_modules and build output never enter the context.
+node_modules
+dist
+build
+.react-router
+coverage
+# Env files never enter the context; build-time settings are passed as build arguments.
+# Only the documented example file is allowed.
+**/.env
+**/.env.*
+!.env.example
+*.log
+.git
+.vscode
+.idea
+Dockerfile
+.dockerignore
