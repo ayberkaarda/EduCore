@@ -17,7 +17,7 @@
 #
 # Base images are pinned by digest; Dependabot (.github/dependabot.yml) proposes digest updates weekly.
 
-FROM maven:3.9-eclipse-temurin-21@sha256:99e61abcff91a9b1333463bd8451fb18495d6eba9250ac66a338b518f8278320 AS build
+FROM maven:3-eclipse-temurin-24@sha256:a137a467ec89b5713d0be817b55bdba6b4d6ef16e3d05565a79bc08d8e775a1c AS build
 ARG SKIP_TESTS=false
 ARG TESTCONTAINERS_DOCKER_HOST=""
 WORKDIR /workspace
