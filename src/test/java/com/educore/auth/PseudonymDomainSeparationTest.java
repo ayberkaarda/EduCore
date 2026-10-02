@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PseudonymDomainSeparationTest {
 
     /** TEST DATA ONLY. */
-    private static final String PEPPER = "pseudonym-test-only-pepper-0REMOVED-DB-PASSWORD56789abcdef";
+    private static final String PEPPER = "pseudonym-test-only-pepper-0123456789abcdef";
 
     private final UsernameHasher hasher = new UsernameHasher(PEPPER);
     private final Pseudonyms pseudonyms = new Pseudonyms(hasher);

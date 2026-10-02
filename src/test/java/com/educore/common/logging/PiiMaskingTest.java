@@ -121,7 +121,7 @@ class PiiMaskingTest {
         }
 
         @ParameterizedTest
-        @ValueSource(strings = {"eve_FORGEDREMOVED-DB-PASSWORD_level=INFO_", "Req-2026_Abc", "tooShort"})
+        @ValueSource(strings = {"eve_FORGED1234_level=INFO_", "Req-2026_Abc", "tooShort"})
         void mixedIdentifiersThatAreNotTemporaryPasswordsAreKept(String text) {
             String probe = "tooShort".equals(text) ? TEMPORARY_PASSWORD.substring(1) : text;
             assertThat(PiiMasking.mask(probe)).isEqualTo(probe);
@@ -217,7 +217,7 @@ class PiiMaskingTest {
             Map<String, String> event = Map.of(
                     "message", "login from 192.168.1.34 by ayse@example.com with " + JWT,
                     "stack", "java.lang.IllegalStateException: studentNumber=20230145 token=" + REFRESH_TOKEN,
-                    "requestId", "Req-2026_Abcdefgh-ijkl", "userId", "REMOVED-DB-PASSWORD567");
+                    "requestId", "Req-2026_Abcdefgh-ijkl", "userId", "1234567");
             JsonWriter<Map<String, String>> writer = JsonWriter.of(members -> {
                 members.add("message", value -> value.get("message"));
                 members.add("error").usingMembers(error -> error.add("stack_trace", value -> value.get("stack")));
@@ -234,7 +234,7 @@ class PiiMaskingTest {
             assertThat(json.get("error").get("stack_trace").asText())
                     .isEqualTo("java.lang.IllegalStateException: studentNumber=******45 token=[REDACTED]");
             assertThat(json.get("requestId").asText()).isEqualTo("Req-2026_Abcdefgh-ijkl");
-            assertThat(json.get("userId").asText()).isEqualTo("REMOVED-DB-PASSWORD567");
+            assertThat(json.get("userId").asText()).isEqualTo("1234567");
             assertThat(json.get("count").asInt()).isEqualTo(20230145);
         }
 

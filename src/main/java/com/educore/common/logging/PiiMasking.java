@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
  *   <li>opaque tokens (32 or more URL-safe base64 or hex characters mixing letters and digits, e.g. refresh
  *       tokens, hashes, keys; UUIDs are kept so request ids stay searchable): {@value #REDACTED};</li>
  *   <li>IPv4 addresses: the last octet becomes {@code ***};</li>
- *   <li>student numbers: labelled ({@code studentNumber=REMOVED-DB-PASSWORD5678}) 4 to 12 digits, and any stand-alone run of
+ *   <li>student numbers: labelled ({@code studentNumber=12345678}) 4 to 12 digits, and any stand-alone run of
  *       6 to 12 digits, keep their last two digits ({@code ******78}). Shorter bare numbers (ports, years,
  *       counts) are left alone.</li>
  * </ol>

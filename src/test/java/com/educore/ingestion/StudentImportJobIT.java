@@ -54,8 +54,8 @@ class StudentImportJobIT extends IngestionIntegrationSupport {
             assertThat(account.getRole()).isEqualTo(Role.USER);
             assertThat(account.getPassword()).startsWith("{bcrypt}$2a$12$");
             assertThat(account.isMustChangePassword()).isTrue();
-            assertThat(passwordEncoder.matches("REMOVED-DB-PASSWORD", account.getPassword())).isFalse();
-            assertThat(passwordEncoder.matches("REMOVED-DB-PASSWORD56", account.getPassword())).isFalse();
+            assertThat(passwordEncoder.matches("1234", account.getPassword())).isFalse();
+            assertThat(passwordEncoder.matches("123456", account.getPassword())).isFalse();
         });
         assertThat(accounts).extracting(Account::getPassword).doesNotHaveDuplicates();
         assertThat(accounts.get(0).getFirstName()).isEqualTo("Ayşe");
@@ -161,7 +161,7 @@ class StudentImportJobIT extends IngestionIntegrationSupport {
                 + "Veli,Kaya,12ab\n"
                 + "<script>,Kaya," + number() + "\n"
                 + "Only,TwoColumns\n"
-                + "\"Unclosed,Kaya,REMOVED-DB-PASSWORD56\n");
+                + "\"Unclosed,Kaya,123456\n");
 
         JobLog log = importNow(file);
 

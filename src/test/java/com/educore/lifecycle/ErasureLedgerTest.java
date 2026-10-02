@@ -25,7 +25,7 @@ import static org.mockito.Mockito.when;
 class ErasureLedgerTest {
 
     /** TEST DATA ONLY: a pepper of the required length. */
-    private static final String PEPPER = "erasure-ledger-test-only-pepper-0REMOVED-DB-PASSWORD56789";
+    private static final String PEPPER = "erasure-ledger-test-only-pepper-0123456789";
 
     @TempDir
     Path dir;
@@ -60,9 +60,9 @@ class ErasureLedgerTest {
     void linesRoundTripAndAnythingElseIsRejected() {
         String hex = "a".repeat(64);
         ErasureLedger.Entry entry = new ErasureLedger.Entry(hex, "b".repeat(64), null,
-                Instant.parse("2026-10-02T03:30:00.REMOVED-DB-PASSWORD56Z"));
+                Instant.parse("2026-10-02T03:30:00.123456Z"));
 
-        assertThat(entry.line()).isEqualTo("v1 2026-10-02T03:30:00.REMOVED-DB-PASSWORD56Z " + hex + " " + "b".repeat(64) + " -");
+        assertThat(entry.line()).isEqualTo("v1 2026-10-02T03:30:00.123456Z " + hex + " " + "b".repeat(64) + " -");
         assertThat(ErasureLedger.Entry.parse(entry.line())).contains(entry);
         for (String bad : List.of("", "v2 2026-10-02T03:30:00Z " + hex + " " + hex + " -",
                 "v1 2026-10-02T03:30:00Z " + hex.toUpperCase() + " " + hex + " -",

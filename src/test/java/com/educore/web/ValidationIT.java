@@ -79,7 +79,7 @@ class ValidationIT extends AuthzIntegrationSupport {
         assertInvalid(shortNumber, "request/invalid", "studentNumber:pattern");
 
         MvcResult longNumber = perform(admin, post("/api/v1/admin/accounts/students"),
-                map("firstName", "Valid", "studentNumber", "REMOVED-DB-PASSWORD567890123"));
+                map("firstName", "Valid", "studentNumber", "1234567890123"));
         assertInvalid(longNumber, "request/invalid", "studentNumber:pattern");
 
         MvcResult missingName = perform(admin, post("/api/v1/admin/accounts/students"),
@@ -218,7 +218,7 @@ class ValidationIT extends AuthzIntegrationSupport {
     void numbersAndBooleansAreNotCoercedToStrings() throws Exception {
         Account user = account(Role.USER);
 
-        assertInvalid(perform(user, put("/api/v1/me"), map("firstName", REMOVED-DB-PASSWORD5, "lastName", "Valid")),
+        assertInvalid(perform(user, put("/api/v1/me"), map("firstName", 12345, "lastName", "Valid")),
                 "request/invalid", "firstName:type");
         assertInvalid(perform(user, put("/api/v1/me"), map("firstName", "Valid", "lastName", false)),
                 "request/invalid", "lastName:type");

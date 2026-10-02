@@ -97,7 +97,7 @@ class JwtAuthenticationFilterIT extends AbstractIntegrationTest {
                         })
                         .header(HttpHeaders.AUTHORIZATION, "Bearer a.b.c")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"admin\",\"password\":\"REMOVED-DB-PASSWORD\"}"))
+                        .content("{\"username\":\"admin\",\"password\":\"1234\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty());
     }

@@ -250,7 +250,7 @@ describe('admin lifecycle and audit', () => {
 
   it('paginates audit events and renders purged account pseudonyms', async () => {
     const pages: number[] = []
-    const event: SecurityEvent = { id: 1, type: 'ACCOUNT_PURGED', actorAccountId: null, targetAccountId: null, actorPseudonym: 'purged:0REMOVED-DB-PASSWORD56789abcdef', targetPseudonym: 'purged:fedcba9876543210', ip: null, requestId: 'req-1', at: '2026-10-02T10:00:00Z', details: { trigger: 'ADMIN_HARD_DELETE' } }
+    const event: SecurityEvent = { id: 1, type: 'ACCOUNT_PURGED', actorAccountId: null, targetAccountId: null, actorPseudonym: 'purged:0123456789abcdef', targetPseudonym: 'purged:fedcba9876543210', ip: null, requestId: 'req-1', at: '2026-10-02T10:00:00Z', details: { trigger: 'ADMIN_HARD_DELETE' } }
     server.use(...sessionHandlers(adminUser), http.get(`${API}/admin/security-events`, ({ request }) => {
       const params = new URL(request.url).searchParams
       const page = Number(params.get('page'))

@@ -67,11 +67,11 @@ class AccountLifecycleMigrationIT {
                     .hasMessageContaining("ck_account_lifecycle_dates");
             assertThatThrownBy(() -> jdbc.update("UPDATE account SET status = 'PENDING_DELETION' "
                     + "WHERE username = 'active-user'")).hasMessageContaining("ck_account_lifecycle_dates");
-            assertThatThrownBy(() -> jdbc.update("UPDATE security_event SET actor_pseudonym = 'purged:0REMOVED-DB-PASSWORD56789abcdef'"))
+            assertThatThrownBy(() -> jdbc.update("UPDATE security_event SET actor_pseudonym = 'purged:0123456789abcdef'"))
                     .hasMessageContaining("ck_security_event_actor_ref");
             assertThatThrownBy(() -> jdbc.update("UPDATE security_event SET target_account_id = NULL, "
                     + "target_pseudonym = 'purged:XYZ'")).hasMessageContaining("ck_security_event_target_pseudonym");
-            jdbc.update("UPDATE security_event SET target_account_id = NULL, target_pseudonym = 'purged:0REMOVED-DB-PASSWORD56789abcdef'");
+            jdbc.update("UPDATE security_event SET target_account_id = NULL, target_pseudonym = 'purged:0123456789abcdef'");
         }
     }
 }

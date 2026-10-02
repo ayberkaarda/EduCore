@@ -460,7 +460,7 @@ class PublicApiIT extends PublicApiTestSupport {
             MvcResult result = perform(null, get(path).header(HttpHeaders.IF_NONE_MATCH, header), null);
             assertThat(result.getResponse().getStatus()).as(header).isEqualTo(304);
         }
-        for (String header : List.of("\"0000\"", "W/\"0000\", \"9000000\"")) {
+        for (String header : List.of("\"0000\"", "W/\"0000\", \"1111\"")) {
             MvcResult result = perform(null, get(path).header(HttpHeaders.IF_NONE_MATCH, header), null);
             assertThat(result.getResponse().getStatus()).as(header).isEqualTo(200);
         }

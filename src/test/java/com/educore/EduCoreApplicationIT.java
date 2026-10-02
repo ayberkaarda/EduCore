@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class EduCoreApplicationIT extends AbstractIntegrationTest {
 
     /** Local demo password of the seeded dev/test accounts (dev and test profiles only). */
-    private static final String DEMO_PASSWORD = "REMOVED-DB-PASSWORD";
+    private static final String DEMO_PASSWORD = "1234";
 
     @Autowired
     private Flyway flyway;

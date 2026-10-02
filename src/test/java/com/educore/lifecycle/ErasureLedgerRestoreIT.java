@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ErasureLedgerRestoreIT {
 
     /** TEST DATA ONLY: a fixed login pepper of the required length, so digests survive the restart. */
-    private static final String PEPPER = "restore-drill-test-only-pepper-0REMOVED-DB-PASSWORD56789";
+    private static final String PEPPER = "restore-drill-test-only-pepper-0123456789";
     private static final String PASSWORD = "restore-drill-test-only-password";
     private static final String ORIGIN = "http://localhost:3000";
 

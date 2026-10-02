@@ -2,13 +2,13 @@
 # and replace every value. All keys are documented below and in variables.tf.
 
 # project_id: the Google Cloud project that runs EduCore. The budget only counts this project's spend.
-project_id = "educore-prod-REMOVED-DB-PASSWORD56"
+project_id = "educore-prod-123456"
 
 # region: provider default region (budgets themselves are global).
 region = "europe-west1"
 
 # billing_account_id: billing account paying for project_id (Billing > Account management).
-billing_account_id = "0REMOVED-DB-PASSWORD5-6789AB-CDEF01"
+billing_account_id = "012345-6789AB-CDEF01"
 
 # project_name: used in the budget display name and in notification channel names.
 project_name = "educore"

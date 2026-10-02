@@ -20,7 +20,7 @@ class PasswordPolicyTest {
         assertThat(policy.denyListSize()).isGreaterThanOrEqualTo(10_000);
         List<String> lines = new org.springframework.core.io.ClassPathResource(PasswordPolicy.DENY_LIST)
                 .getContentAsString(StandardCharsets.UTF_8).lines().toList();
-        assertThat(lines).hasSizeGreaterThanOrEqualTo(10_000).startsWith("password", "REMOVED-DB-PASSWORD56", "REMOVED-DB-PASSWORD5678");
+        assertThat(lines).hasSizeGreaterThanOrEqualTo(10_000).startsWith("password", "123456", "12345678");
     }
 
     @Test

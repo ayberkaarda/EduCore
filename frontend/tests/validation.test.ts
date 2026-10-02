@@ -7,9 +7,9 @@ describe('contract validation', () => {
   it('accepts absent and empty optional student fields on create and edit', () => {
     expect(createStudentSchema.parse({ firstName: 'Ada' })).toEqual({ firstName: 'Ada', lastName: '', studentNumber: '' })
     expect(updateStudentSchema.safeParse({ firstName: 'Ada', lastName: '', studentNumber: '', ipAddress: '' }).success).toBe(true)
-    expect(createStudentSchema.safeParse({ firstName: 'Ada', studentNumber: 'REMOVED-DB-PASSWORD' }).success).toBe(true)
+    expect(createStudentSchema.safeParse({ firstName: 'Ada', studentNumber: '1234' }).success).toBe(true)
     expect(createStudentSchema.safeParse({ firstName: 'Ada', studentNumber: '123' }).success).toBe(false)
-    expect(createStudentSchema.safeParse({ firstName: 'Ada', studentNumber: 'REMOVED-DB-PASSWORD567890123' }).success).toBe(false)
+    expect(createStudentSchema.safeParse({ firstName: 'Ada', studentNumber: '1234567890123' }).success).toBe(false)
   })
   it('allows an absent or empty course term', () => {
     expect(courseSchema.safeParse({ name: 'Math' }).success).toBe(true)

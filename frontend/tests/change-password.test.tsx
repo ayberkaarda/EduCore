@@ -25,7 +25,7 @@ describe('change-password screen', () => {
     )
     renderApp('/app/change-password')
 
-    await fill('Temporary-Password-24chars', 'passwordREMOVED-DB-PASSWORD')
+    await fill('Temporary-Password-24chars', 'password1234')
 
     const alert = await screen.findByText('The new password was rejected:')
     const list = within(alert.parentElement as HTMLElement).getByRole('list')

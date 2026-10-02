@@ -110,10 +110,10 @@ class LoginIT extends AuthIntegrationSupport {
     @Test
     void seededDemoAccountStillLogsInAndIsUpgraded() throws Exception {
         // Local demo password of the synthetic dev/test seed.
-        assertThat(login("ali", "REMOVED-DB-PASSWORD", newIp()).getResponse().getStatus()).isEqualTo(200);
+        assertThat(login("ali", "1234", newIp()).getResponse().getStatus()).isEqualTo(200);
 
         assertThat(accountRepository.findByUsername("ali").orElseThrow().getPassword()).startsWith("{bcrypt}$2a$12$");
-        assertThat(login("ali", "REMOVED-DB-PASSWORD", newIp()).getResponse().getStatus()).isEqualTo(200);
+        assertThat(login("ali", "1234", newIp()).getResponse().getStatus()).isEqualTo(200);
     }
 
     @Test

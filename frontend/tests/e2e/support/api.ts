@@ -10,7 +10,7 @@ export const BASE_URL = (process.env.E2E_BASE_URL ?? process.env.BASE_URL ?? 'ht
  */
 export const ADMIN = {
   username: process.env.E2E_ADMIN_USERNAME ?? 'admin',
-  password: process.env.E2E_ADMIN_PASSWORD ?? 'REMOVED-DB-PASSWORD',
+  password: process.env.E2E_ADMIN_PASSWORD ?? '1234',
 }
 
 export interface SessionUser {

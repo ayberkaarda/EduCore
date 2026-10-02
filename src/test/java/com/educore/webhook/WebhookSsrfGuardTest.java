@@ -47,7 +47,7 @@ class WebhookSsrfGuardTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"93.184.215.14", "8.8.8.8", "1.1.1.1", "172.32.0.1", "100.128.0.1", "2606:4700::9000000",
+    @ValueSource(strings = {"93.184.215.14", "8.8.8.8", "1.1.1.1", "172.32.0.1", "100.128.0.1", "2606:4700::1111",
             "2a00:1450:4001:80b::200e", "::ffff:8.8.8.8", "64:ff9b::808:808"})
     void allowsPublicAddresses(String literal) throws Exception {
         assertThat(policy.isAllowed(InetAddress.getByName(literal))).as(literal).isTrue();

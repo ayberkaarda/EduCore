@@ -20,7 +20,7 @@ variable "billing_account_id" {
 
   validation {
     condition     = can(regex("^[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}$", var.billing_account_id))
-    error_message = "billing_account_id must look like 0REMOVED-DB-PASSWORD5-6789AB-CDEF01."
+    error_message = "billing_account_id must look like 012345-6789AB-CDEF01."
   }
 }
 

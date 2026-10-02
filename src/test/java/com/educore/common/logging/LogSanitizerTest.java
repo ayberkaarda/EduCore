@@ -72,7 +72,7 @@ class LogSanitizerTest {
     @Test
     void customLimitIsHonoured() {
         assertThat(LogSanitizer.sanitize("abcdefghij", 8)).isEqualTo("abcde...");
-        assertThat(LogSanitizer.sanitize(REMOVED-DB-PASSWORD5, 8)).isEqualTo("REMOVED-DB-PASSWORD5");
+        assertThat(LogSanitizer.sanitize(12345, 8)).isEqualTo("12345");
         assertThatThrownBy(() -> LogSanitizer.sanitize("abc", 3)).isInstanceOf(IllegalArgumentException.class);
     }
 

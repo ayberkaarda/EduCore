@@ -207,12 +207,12 @@ class AuditEventIT extends AuthzIntegrationSupport {
         IpAllocationRange range = ipAllocation("192.0.2.0/24", 0xC0000200L, 0xC00002FFL);
 
         Audited updated = audited(admin, put("/api/v1/admin/accounts/" + student.getId()),
-                map("firstName", "Sensitive-First", "lastName", "Sensitive-Last", "studentNumber", "9790000002222",
+                map("firstName", "Sensitive-First", "lastName", "Sensitive-Last", "studentNumber", "9711112222",
                         "ipAddress", "192.0.2.15"));
 
         assertThat(updated.result().getResponse().getStatus()).isEqualTo(200);
         Event event = eventOf(updated.requestId());
-        assertThat(event.details().toString()).doesNotContain("Sensitive").doesNotContain("9790000002222")
+        assertThat(event.details().toString()).doesNotContain("Sensitive").doesNotContain("9711112222")
                 .doesNotContain("192.0.2.15").doesNotContain(student.getUsername());
         assertThat(range.getId()).isPositive();
         // The response listing the event to an ADMIN carries the same row.

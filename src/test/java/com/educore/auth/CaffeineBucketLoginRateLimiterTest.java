@@ -22,7 +22,7 @@ class CaffeineBucketLoginRateLimiterTest {
 
         assertThat(limiter.tryAcquire("2001:db8:aa:bb::1").allowed()).isTrue();
         assertThat(limiter.tryAcquire("2001:db8:aa:bb:ffff:ffff:ffff:fffe").allowed()).isTrue();
-        assertThat(limiter.tryAcquire("[2001:db8:aa:bb::REMOVED-DB-PASSWORD]:5555").allowed()).isTrue();
+        assertThat(limiter.tryAcquire("[2001:db8:aa:bb::1234]:5555").allowed()).isTrue();
         LoginRateLimiter.Decision fourth = limiter.tryAcquire("2001:db8:aa:bb:1:2:3:4");
 
         assertThat(fourth.allowed()).as("a fourth address of the same /64").isFalse();
