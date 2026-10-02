@@ -49,7 +49,7 @@ WORKDIR /app
 # (keyed digests only, no personal data).
 RUN addgroup -S -g 10001 educore \
     && adduser -S -D -H -u 10001 -G educore educore \
-    && mkdir -p /app/csv_uploads/inbox /app/csv_uploads/processing /app/csv_uploads/done /app/csv_uploads/failed \
+    && mkdir -p /app/csv_uploads/inbox /app/csv_uploads/processing /app/csv_uploads/done /app/csv_uploads/failed /app/csv_uploads/staging \
     && chown -R educore:educore /app \
     && mkdir -p /var/lib/educore && chown educore:educore /var/lib/educore && chmod 0755 /var/lib/educore
 

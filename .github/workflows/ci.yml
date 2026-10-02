@@ -172,6 +172,13 @@ jobs:
 
       # dev profile with its synthetic seed; the browser reaches the API through the frontend's /api proxy on :3000.
       # The frontend image prerenders its public pages from the mock catalog (docker-compose.yml build args).
+      # The backend runs as uid 10001; the bind-mounted ingestion folders must be writable for it
+      # (docker-compose.yml, csv_uploads volume comment).
+      - name: Prepare the ingestion folders
+        run: |
+          mkdir -p csv_uploads/inbox csv_uploads/processing csv_uploads/done csv_uploads/failed csv_uploads/staging
+          sudo chown -R 10001:10001 csv_uploads
+
       - name: Start the stack
         run: docker compose up -d --build --wait --wait-timeout 300
 
