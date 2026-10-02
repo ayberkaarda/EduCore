@@ -8,17 +8,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Soft-deleted accounts ({@code deleted != 0}) cannot log in, refresh or use bearer tokens. */
+/** Soft-deleted accounts ({@code status = DEACTIVATED}) cannot log in, refresh or use bearer tokens. */
 class SoftDeletedAccountIT extends AuthIntegrationSupport {
 
-    private void setDeleted(Account account, int deleted) {
-        jdbc.update("UPDATE account SET deleted = ? WHERE id = ?", deleted, account.getId());
+    private void setDeleted(Account account, boolean deleted) {
+        jdbc.update("UPDATE account SET status = ? WHERE id = ?", deleted ? "DEACTIVATED" : "ACTIVE",
+                account.getId());
     }
 
     @Test
     void loginWithTheCorrectPasswordAnswersExactlyLikeInvalidCredentials() throws Exception {
         Account account = createAccount(false);
-        setDeleted(account, 1);
+        setDeleted(account, true);
 
         MvcResult deleted = login(account.getUsername(), PASSWORD, newIp());
         MvcResult wrongPassword = login(account.getUsername(), "wrong-value-for-test", newIp());
@@ -37,7 +38,7 @@ class SoftDeletedAccountIT extends AuthIntegrationSupport {
         Account account = createAccount(false);
         String ip = newIp();
         String token = refreshToken(login(account.getUsername(), PASSWORD, ip));
-        setDeleted(account, 1);
+        setDeleted(account, true);
 
         mockMvc.perform(refreshRequest(token, ip))
                 .andExpect(status().isUnauthorized())
@@ -46,7 +47,7 @@ class SoftDeletedAccountIT extends AuthIntegrationSupport {
         // Nothing was issued and the token was not rotated: the transaction rolled back.
         assertThat(jdbc.queryForObject("SELECT count(*) FROM refresh_token WHERE account_id = ?", Long.class,
                 account.getId())).isEqualTo(1);
-        setDeleted(account, 0);
+        setDeleted(account, false);
         mockMvc.perform(refreshRequest(token, ip)).andExpect(status().isOk());
     }
 
@@ -56,7 +57,7 @@ class SoftDeletedAccountIT extends AuthIntegrationSupport {
         String accessToken = accessToken(body(login(account.getUsername(), PASSWORD, newIp())));
         mockMvc.perform(meRequest(accessToken)).andExpect(status().isOk());
 
-        setDeleted(account, 1);
+        setDeleted(account, true);
 
         mockMvc.perform(meRequest(accessToken)).andExpect(status().isUnauthorized());
     }

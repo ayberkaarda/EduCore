@@ -3,6 +3,7 @@ package com.educore.authz;
 import com.educore.account.AccountAdminService;
 import com.educore.common.web.ApiProblemException;
 import com.educore.entity.Account;
+import com.educore.entity.AccountStatus;
 import com.educore.entity.Role;
 import com.educore.security.AuthenticatedUser;
 import org.junit.jupiter.api.Test;
@@ -45,7 +46,7 @@ class LastAdminGuardIT extends AuthzIntegrationSupport {
 
         assertThat(result.getResponse().getStatus()).isEqualTo(409);
         assertThat(body(result).get("type").asText()).endsWith("/account/self-delete");
-        assertThat(accountRepository.findById(admin.getId()).orElseThrow().getDeleted()).isZero();
+        assertThat(accountRepository.findById(admin.getId()).orElseThrow().getStatus()).isEqualTo(AccountStatus.ACTIVE);
     }
 
     @Test
@@ -60,7 +61,7 @@ class LastAdminGuardIT extends AuthzIntegrationSupport {
                 .getResponse().getStatus()).isEqualTo(204);
 
         assertThat(accountRepository.findById(second.getId()).orElseThrow().getRole()).isEqualTo(Role.USER);
-        assertThat(accountRepository.findById(third.getId()).orElseThrow().getDeleted()).isEqualTo(1);
+        assertThat(accountRepository.findById(third.getId()).orElseThrow().getStatus()).isEqualTo(AccountStatus.DEACTIVATED);
     }
 
     @Test
@@ -81,7 +82,7 @@ class LastAdminGuardIT extends AuthzIntegrationSupport {
 
             Account stored = accountRepository.findById(lastAdmin.getId()).orElseThrow();
             assertThat(stored.getRole()).isEqualTo(Role.ADMIN);
-            assertThat(stored.getDeleted()).isZero();
+            assertThat(stored.getStatus()).isEqualTo(AccountStatus.ACTIVE);
         } finally {
             reactivate(deactivated);
         }
@@ -144,7 +145,7 @@ class LastAdminGuardIT extends AuthzIntegrationSupport {
         long count = 0;
         for (Account account : accounts) {
             Account stored = accountRepository.findById(account.getId()).orElseThrow();
-            if (stored.getRole() == Role.ADMIN && stored.getDeleted() == 0) {
+            if (stored.getRole() == Role.ADMIN && stored.getStatus() == AccountStatus.ACTIVE) {
                 count++;
             }
         }
@@ -153,14 +154,14 @@ class LastAdminGuardIT extends AuthzIntegrationSupport {
 
     private List<Long> deactivateOtherAdmins(Account... keep) {
         List<Long> keepIds = java.util.Arrays.stream(keep).map(Account::getId).toList();
-        List<Long> others = jdbc.queryForList("SELECT id FROM account WHERE role = 'ADMIN' AND deleted = 0",
+        List<Long> others = jdbc.queryForList("SELECT id FROM account WHERE role = 'ADMIN' AND status = 'ACTIVE'",
                 Long.class).stream().filter(id -> !keepIds.contains(id)).toList();
-        others.forEach(id -> jdbc.update("UPDATE account SET deleted = 1 WHERE id = ?", id));
+        others.forEach(id -> jdbc.update("UPDATE account SET status = 'DEACTIVATED' WHERE id = ?", id));
         return others;
     }
 
     private void reactivate(List<Long> ids) {
-        ids.forEach(id -> jdbc.update("UPDATE account SET deleted = 0 WHERE id = ?", id));
+        ids.forEach(id -> jdbc.update("UPDATE account SET status = 'ACTIVE' WHERE id = ?", id));
     }
 
     @SafeVarargs

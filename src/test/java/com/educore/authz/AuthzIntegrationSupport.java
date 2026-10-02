@@ -1,21 +1,22 @@
 package com.educore.authz;
 
-import com.educore.WeatherClient;
 import com.educore.entity.Account;
 import com.educore.entity.Course;
 import com.educore.entity.Enrollment;
-import com.educore.entity.IpBlock;
 import com.educore.entity.JobLog;
+import com.educore.entity.JobLogStatus;
 import com.educore.entity.Role;
+import com.educore.ipaccess.IpAllocationRange;
+import com.educore.ipaccess.IpAllocationRangeRepository;
 import com.educore.repository.AccountRepository;
 import com.educore.repository.CourseRepository;
 import com.educore.repository.EnrollmentRepository;
-import com.educore.repository.IpBlockRepository;
 import com.educore.repository.JobLogRepository;
 import com.educore.security.AccessTokenAuthentication;
 import com.educore.security.AuthenticatedUser;
 import com.educore.security.JwtService;
 import com.educore.support.AbstractIntegrationTest;
+import com.educore.weather.WeatherClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -74,7 +75,7 @@ public abstract class AuthzIntegrationSupport extends AbstractIntegrationTest {
     protected EnrollmentRepository enrollmentRepository;
 
     @Autowired
-    protected IpBlockRepository ipBlockRepository;
+    protected IpAllocationRangeRepository ipAllocationRepository;
 
     @Autowired
     protected JobLogRepository jobLogRepository;
@@ -96,6 +97,7 @@ public abstract class AuthzIntegrationSupport extends AbstractIntegrationTest {
     private final List<String> courseNames = new ArrayList<>();
     private final List<Long> ipRuleIds = new ArrayList<>();
     private final List<String> ipRuleValues = new ArrayList<>();
+    private final List<String> denyRuleValues = new ArrayList<>();
     private final List<Long> jobLogIds = new ArrayList<>();
 
     @AfterEach
@@ -106,14 +108,15 @@ public abstract class AuthzIntegrationSupport extends AbstractIntegrationTest {
         courseNames.forEach(name -> courseIds.addAll(
                 jdbc.queryForList("SELECT id FROM course WHERE name = ?", Long.class, name)));
         ipRuleValues.forEach(value -> ipRuleIds.addAll(
-                jdbc.queryForList("SELECT id FROM ip_block WHERE original_value = ?", Long.class, value)));
+                jdbc.queryForList("SELECT id FROM ip_allocation_range WHERE original_value = ?", Long.class, value)));
         accountIds.forEach(id -> jdbc.update("DELETE FROM enrollments WHERE account_id = ?", id));
         courseIds.forEach(id -> jdbc.update("DELETE FROM enrollments WHERE course_id = ?", id));
         courseIds.forEach(id -> jdbc.update("DELETE FROM course WHERE id = ?", id));
-        ipRuleIds.forEach(id -> jdbc.update("DELETE FROM ip_block WHERE id = ?", id));
+        ipRuleIds.forEach(id -> jdbc.update("DELETE FROM ip_allocation_range WHERE id = ?", id));
+        denyRuleValues.forEach(value -> jdbc.update("DELETE FROM ip_deny_rule WHERE value = ?", value));
         jobLogIds.forEach(id -> jdbc.update("DELETE FROM job_log WHERE id = ?", id));
         accountIds.forEach(id -> jdbc.update("DELETE FROM account WHERE id = ?", id));
-        List.of(accountIds, studentNumbers, courseIds, courseNames, ipRuleIds, ipRuleValues, jobLogIds)
+        List.of(accountIds, studentNumbers, courseIds, courseNames, ipRuleIds, ipRuleValues, denyRuleValues, jobLogIds)
                 .forEach(List::clear);
     }
 
@@ -127,7 +130,6 @@ public abstract class AuthzIntegrationSupport extends AbstractIntegrationTest {
                 .lastName(role == Role.ADMIN ? "Admin" : "User")
                 .studentNumber(uniqueStudentNumber())
                 .role(role)
-                .deleted(0)
                 .build());
         accountIds.add(account.getId());
         return account;
@@ -150,17 +152,31 @@ public abstract class AuthzIntegrationSupport extends AbstractIntegrationTest {
                 .build());
     }
 
-    protected IpBlock ipRule(String cidr, long start, long end) {
-        IpBlock block = ipBlockRepository.save(IpBlock.builder()
+    /** A CIDR range of the student IP allow-list ({@code /admin/ip-allocations}). */
+    protected IpAllocationRange ipAllocation(String cidr, long start, long end) {
+        IpAllocationRange range = ipAllocationRepository.save(IpAllocationRange.builder()
                 .type("CIDR").originalValue(cidr).startIp(start).endIp(end).build());
-        ipRuleIds.add(block.getId());
-        return block;
+        ipRuleIds.add(range.getId());
+        return range;
+    }
+
+    /**
+     * A permanent STATIC deny rule ({@code /admin/ip-rules}) for {@code address}, which must never be a client
+     * address of any test (removed after the test).
+     */
+    protected long denyRule(String address) {
+        denyRuleValues.add(address);
+        String[] octets = address.split("\\.");
+        long value = (Long.parseLong(octets[0]) << 24) | (Long.parseLong(octets[1]) << 16)
+                | (Long.parseLong(octets[2]) << 8) | Long.parseLong(octets[3]);
+        return jdbc.queryForObject("INSERT INTO ip_deny_rule (kind, value, start_ip, end_ip, source, created_at) "
+                + "VALUES ('STATIC', ?, ?, ?, 'MANUAL', now()) RETURNING id", Long.class, address, value, value);
     }
 
     protected JobLog jobLog() {
         JobLog log = jobLogRepository.save(JobLog.builder()
-                .fileName("authz-fixture.csv").status("SUCCESS").entityType("STUDENTS")
-                .createdAt(LocalDateTime.now()).detailedLogs("fixture").build());
+                .fileName("authz-fixture.csv").status(JobLogStatus.SUCCEEDED).entityType("STUDENTS")
+                .createdAt(LocalDateTime.now()).build());
         jobLogIds.add(log.getId());
         return log;
     }
@@ -179,9 +195,14 @@ public abstract class AuthzIntegrationSupport extends AbstractIntegrationTest {
         courseNames.add(name);
     }
 
-    /** Registers an IP rule created through the API (by its value) for removal. */
+    /** Registers an IP allocation range created through the API (by its value) for removal. */
     protected void cleanUpIpRuleValue(String value) {
         ipRuleValues.add(value);
+    }
+
+    /** Registers a deny rule created through the API (by its canonical value) for removal. */
+    protected void cleanUpDenyRuleValue(String value) {
+        denyRuleValues.add(value);
     }
 
     protected void cleanUpJobLog(long id) {
@@ -190,8 +211,15 @@ public abstract class AuthzIntegrationSupport extends AbstractIntegrationTest {
 
     // ---- requests ---------------------------------------------------------------------------------------
 
+    /**
+     * A fresh access token for {@code account}, as a login right now would issue it: bound to the account's
+     * current session epoch (read from the database, the fixture entity may be stale).
+     */
     protected String bearer(Account account) {
-        return "Bearer " + jwtService.issue(AuthenticatedUser.of(account)).token();
+        List<Integer> epoch = jdbc.queryForList("SELECT session_epoch FROM account WHERE id = ?", Integer.class,
+                account.getId());
+        return "Bearer " + jwtService.issue(AuthenticatedUser.of(account), epoch.isEmpty() ? 0 : epoch.get(0))
+                .token();
     }
 
     /** Sets the socket peer address of the request (every request in these tests uses a fresh one). */

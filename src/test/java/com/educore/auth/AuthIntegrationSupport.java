@@ -84,7 +84,6 @@ abstract class AuthIntegrationSupport extends AbstractIntegrationTest {
                 .firstName("Test")
                 .lastName("User")
                 .role(Role.USER)
-                .deleted(0)
                 .mustChangePassword(mustChangePassword)
                 .build());
         createdAccountIds.add(account.getId());

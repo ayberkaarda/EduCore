@@ -87,6 +87,19 @@ class JwtParserTest {
         assertThat(raw.getIssuedAt()).isNotNull();
     }
 
+    /** The session epoch (V22) travels in {@code sep}; tokens from before session epochs count as epoch 0. */
+    @Test
+    void theSessionEpochRoundTripsAndDefaultsToZero() {
+        assertThat(service.parse(service.issue(USER, 7).token()).sessionEpoch()).isEqualTo(7);
+        assertThat(service.parse(service.issue(USER).token()).sessionEpoch()).isZero();
+        String legacy = validBuilder().header().keyId(kid).and().signWith(key, Jwts.SIG.HS256).compact();
+        assertThat(service.parse(legacy).sessionEpoch()).isZero();
+        String text = validBuilder().claim("sep", "1").header().keyId(kid).and().signWith(key, Jwts.SIG.HS256)
+                .compact();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.parse(text))
+                .isInstanceOf(io.jsonwebtoken.JwtException.class);
+    }
+
     @Test
     void eachTokenHasAUniqueJti() {
         assertThat(service.parse(service.issue(USER).token()).tokenId())

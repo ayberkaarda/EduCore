@@ -1,6 +1,7 @@
 # Machine-readable RBAC matrix (application port). docs/security/RBAC_MATRIX.md mirrors every row.
-# kind: ENDPOINT = a mapped handler (method + exact mapping pattern); RESERVED = URL rule without handler yet;
-# FALLBACK = sample of an unmapped path. Status cells: HTTP status of a valid request, NA = cannot address
+# kind: ENDPOINT = a mapped /api/** handler (method + exact mapping pattern); SITE = a mapped handler outside
+# /api/**; RESERVED = URL rule as a whole (its mapped routes have their own rows); FALLBACK = sample of an
+# unmapped path. Status cells: HTTP status of a valid request, NA = cannot address
 # another account, OPEN = permitted by the URL rule (no handler to call).
 id,kind,method,path,admin,user_self,user_other,anonymous
 01,ENDPOINT,POST,/api/v1/auth/login,200,200,200,200
@@ -27,11 +28,36 @@ id,kind,method,path,admin,user_self,user_other,anonymous
 22,ENDPOINT,POST,/api/v1/admin/courses,201,403,403,401
 23,ENDPOINT,PUT,/api/v1/admin/courses/{courseId},200,403,403,401
 24,ENDPOINT,DELETE,/api/v1/admin/courses/{courseId},204,403,403,401
-25,ENDPOINT,GET,/api/v1/admin/ip-rules,200,403,403,401
-26,ENDPOINT,POST,/api/v1/admin/ip-rules,201,403,403,401
-27,ENDPOINT,DELETE,/api/v1/admin/ip-rules/{ipRuleId},204,403,403,401
+25,ENDPOINT,GET,/api/v1/admin/ip-allocations,200,403,403,401
+26,ENDPOINT,POST,/api/v1/admin/ip-allocations,201,403,403,401
+27,ENDPOINT,DELETE,/api/v1/admin/ip-allocations/{ipAllocationId},204,403,403,401
 28,ENDPOINT,GET,/api/v1/admin/job-logs,200,403,403,401
 29,ENDPOINT,DELETE,/api/v1/admin/job-logs,204,403,403,401
 30,ENDPOINT,GET,/api/v1/admin/security-events,200,403,403,401
-31,RESERVED,ANY,/api/v1/public/**,OPEN,OPEN,OPEN,OPEN
+31,RESERVED,GET,/api/v1/public/**,OPEN,OPEN,OPEN,OPEN
 32,FALLBACK,GET,/api/v1/accounts/students,404,404,404,401
+40,ENDPOINT,GET,/api/v1/public/courses,200,200,200,200
+41,ENDPOINT,GET,/api/v1/public/courses/{slug},200,200,200,200
+42,ENDPOINT,GET,/api/v1/public/site-facts,200,200,200,200
+43,SITE,GET,/sitemap.xml,200,200,200,200
+44,SITE,GET,/sitemap-courses-{file}.xml,200,200,200,200
+50,ENDPOINT,GET,/api/v1/admin/ip-rules,200,403,403,401
+51,ENDPOINT,POST,/api/v1/admin/ip-rules,201,403,403,401
+52,ENDPOINT,GET,/api/v1/admin/ip-rules/{ipRuleId},200,403,403,401
+53,ENDPOINT,PUT,/api/v1/admin/ip-rules/{ipRuleId},200,403,403,401
+54,ENDPOINT,DELETE,/api/v1/admin/ip-rules/{ipRuleId},204,403,403,401
+60,ENDPOINT,GET,/api/v1/admin/job-logs/{jobLogId}/entries,200,403,403,401
+61,ENDPOINT,POST,/api/v1/admin/imports,202,403,403,401
+62,ENDPOINT,GET,/api/v1/admin/webhooks,200,403,403,401
+63,ENDPOINT,POST,/api/v1/admin/webhooks,201,403,403,401
+64,ENDPOINT,GET,/api/v1/admin/webhooks/{webhookId},200,403,403,401
+65,ENDPOINT,PUT,/api/v1/admin/webhooks/{webhookId},200,403,403,401
+66,ENDPOINT,DELETE,/api/v1/admin/webhooks/{webhookId},204,403,403,401
+67,ENDPOINT,POST,/api/v1/admin/webhooks/{webhookId}/test,202,403,403,401
+68,ENDPOINT,GET,/api/v1/admin/webhooks/{webhookId}/deliveries,200,403,403,401
+70,ENDPOINT,DELETE,/api/v1/me,202,202,NA,401
+71,ENDPOINT,POST,/api/v1/me/restore,200,200,NA,401
+72,ENDPOINT,GET,/api/v1/me/export,200,200,NA,401
+73,ENDPOINT,POST,/api/v1/admin/accounts/{accountId}/restore,200,403,403,401
+74,ENDPOINT,POST,/api/v1/admin/accounts/{accountId}/purge,204,403,403,401
+75,ENDPOINT,POST,/api/v1/admin/accounts/{accountId}/unlock-login,204,403,403,401

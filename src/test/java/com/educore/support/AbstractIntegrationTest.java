@@ -20,7 +20,10 @@ public abstract class AbstractIntegrationTest {
     @ServiceConnection
     protected static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:15")
             .withDatabaseName("educore_test")
-            .withUsername("educore_test");
+            .withUsername("educore_test")
+            // Every cached Spring context keeps its own connection pool (10) open against this one container;
+            // the default limit of 100 connections is exhausted once about ten contexts exist.
+            .withCommand("postgres", "-c", "max_connections=400");
 
     static {
         POSTGRES.start();

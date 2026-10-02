@@ -145,7 +145,6 @@ class CreateStudentIT extends AbstractIntegrationTest {
                 .firstName("Caller")
                 .lastName("Account")
                 .role(role)
-                .deleted(0)
                 .build());
         createdAccountIds.add(account.getId());
         return account;

@@ -22,7 +22,7 @@ class FlywayMigrationIT extends AbstractIntegrationTest {
 
         assertThat(tables).contains(
                 "flyway_schema_history",
-                "account", "course", "enrollments", "ip_block", "job_log",
+                "account", "course", "enrollments", "ip_allocation_range", "ip_deny_rule", "job_log",
                 "batch_job_instance", "batch_job_execution", "batch_job_execution_params",
                 "batch_step_execution", "batch_step_execution_context", "batch_job_execution_context");
     }

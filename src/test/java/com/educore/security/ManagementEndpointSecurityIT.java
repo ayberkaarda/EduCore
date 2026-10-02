@@ -82,4 +82,28 @@ class ManagementEndpointSecurityIT extends AbstractIntegrationTest {
         assertThat(get(serverPort, "/actuator/health", null).statusCode()).isNotEqualTo(200);
         assertThat(get(serverPort, "/actuator/metrics", "admin").statusCode()).isEqualTo(404);
     }
+
+    /** R-03: an ADMIN that must change its password has no role on the management port either. */
+    @Test
+    void anAdminThatMustChangeThePasswordIsRefusedWithTheScopeCode() throws Exception {
+        com.educore.entity.Account admin = accountRepository.save(com.educore.entity.Account.builder()
+                .username("mgmt-must-change-" + java.util.UUID.randomUUID())
+                .password("{bcrypt}not-used-by-this-test")
+                .firstName("Management")
+                .role(com.educore.entity.Role.ADMIN)
+                .mustChangePassword(true)
+                .build());
+        try {
+            String token = jwtService.issue(AuthenticatedUser.of(admin)).token();
+            HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + managementPort
+                    + "/actuator/metrics")).header("Authorization", "Bearer " + token).GET().build();
+
+            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+
+            assertThat(response.statusCode()).isEqualTo(403);
+            assertThat(response.body()).contains("account/password-change-required");
+        } finally {
+            accountRepository.deleteById(admin.getId());
+        }
+    }
 }

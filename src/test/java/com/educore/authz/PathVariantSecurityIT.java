@@ -170,7 +170,6 @@ class PathVariantSecurityIT extends AbstractIntegrationTest {
                 .firstName("Path")
                 .lastName("Variant")
                 .role(role)
-                .deleted(0)
                 .build());
         createdAccounts.add(account.getId());
         return account;

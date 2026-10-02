@@ -12,7 +12,7 @@
 
 	<groupId>com.educore</groupId>
 	<artifactId>educore</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.0.0</version>
 	<name>EduCore</name>
 	<description>EduCore</description>
 
@@ -23,6 +23,29 @@
 		<spring-cloud.version>2025.0.3</spring-cloud.version>
 		<jacoco.version>0.8.15</jacoco.version>
 		<bucket4j.version>8.20.0</bucket4j.version>
+		<archunit.version>1.4.1</archunit.version>
+		<springdoc.version>2.8.17</springdoc.version>
+		<buildDirName>target</buildDirName>
+		<!-- P10 attacker-mode suite (src/test/java/com/educore/attacks/**, JUnit tag "attack").
+		     Excluded from the default build so a succeeding attack (a real vulnerability) fails only the
+		     dedicated run and never the normal `verify`. Surefire and Failsafe both read this property.
+		     Run the suite with:
+		       .\mvnw.cmd -q verify -Dgroups=attack -DexcludedGroups= -DbuildDirName=target-atk
+		     A failing attack test means the attack succeeded; see docs/security/ATTACK_RESULTS.md. -->
+		<excludedGroups>attack</excludedGroups>
+		<!-- Security overrides of Spring Boot / Spring Cloud managed versions (Trivy gate, docs/ops/CI.md).
+		     Remove each one once the Boot/Cloud release train ships the same or a newer version. -->
+		<!-- CVE-2026-65182, -65905, -68525 (fixed in 10.1.58; 10.1.58 was never published, 10.1.60 is current). -->
+		<tomcat.version>10.1.60</tomcat.version>
+		<!-- CVE-2026-89407, -89425, -68497, -91776, -91777. -->
+		<jackson-bom.version>2.21.7</jackson-bom.version>
+		<!-- CVE-2026-54291 (SCRAM-SHA-256-PLUS downgrade). -->
+		<postgresql.version>42.7.12</postgresql.version>
+		<!-- CVE-2026-54399, -54428: httpcore5 5.4.3; httpclient5 5.6.4 is the client release built on it. -->
+		<httpclient5.version>5.6.4</httpclient5.version>
+		<httpcore5.version>5.4.3</httpcore5.version>
+		<!-- CVE-2026-8763, -13506: bcprov-jdk18on arrives through spring-cloud-starter (managed below). -->
+		<bouncycastle.version>1.85</bouncycastle.version>
 	</properties>
 
 	<dependencies>
@@ -123,6 +146,23 @@
 			<groupId>org.springframework.integration</groupId>
 			<artifactId>spring-integration-file</artifactId>
 		</dependency>
+		<!-- Ingestion: JdbcMetadataStore keeps the inbox accept-once state across restarts. -->
+		<dependency>
+			<groupId>org.springframework.integration</groupId>
+			<artifactId>spring-integration-jdbc</artifactId>
+		</dependency>
+		<!-- Webhooks: HTTP client with a pluggable DNS resolver (SSRF guard at connect time), no redirects. -->
+		<dependency>
+			<groupId>org.apache.httpcomponents.client5</groupId>
+			<artifactId>httpclient5</artifactId>
+		</dependency>
+
+		<!-- OpenAPI document and Swagger UI; both disabled outside the dev profile (OpenApiConfig). -->
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>${springdoc.version}</version>
+		</dependency>
 
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -161,10 +201,23 @@
 			<artifactId>postgresql</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- Architecture rules (ArchitectureTest). -->
+		<dependency>
+			<groupId>com.tngtech.archunit</groupId>
+			<artifactId>archunit-junit5</artifactId>
+			<version>${archunit.version}</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<dependencyManagement>
 		<dependencies>
+			<!-- Explicit entry wins over the version imported from spring-cloud-dependencies. -->
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcprov-jdk18on</artifactId>
+				<version>${bouncycastle.version}</version>
+			</dependency>
 			<dependency>
 				<groupId>org.springframework.cloud</groupId>
 				<artifactId>spring-cloud-dependencies</artifactId>
@@ -176,6 +229,7 @@
 	</dependencyManagement>
 
 	<build>
+		<directory>${project.basedir}/${buildDirName}</directory>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
@@ -296,7 +350,62 @@
 							<outputDirectory>${project.reporting.outputDirectory}/jacoco</outputDirectory>
 						</configuration>
 					</execution>
+					<!-- Coverage gate on the security-critical packages (P10). Measured on 2026-10-02 from the merged unit +
+					     integration data: instructions auth 95.2 %, security 97.7 %, security.audit 99.6 %, ipaccess 96.5 %,
+					     ingestion 92.0 %, ingestion.batch 86.1 %; branches 59.5 % (ingestion.batch) to 87.5 %. The build fails
+					     when any of these packages drops below 85 % instructions or 55 % branches. -->
+					<execution>
+						<id>check</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>check</goal>
+						</goals>
+						<configuration>
+							<dataFile>${project.build.directory}/jacoco-merged.exec</dataFile>
+							<rules>
+								<rule>
+									<element>PACKAGE</element>
+									<includes>
+										<include>com.educore.auth</include>
+										<include>com.educore.auth.*</include>
+										<include>com.educore.security</include>
+										<include>com.educore.security.*</include>
+										<include>com.educore.ipaccess</include>
+										<include>com.educore.ipaccess.*</include>
+										<include>com.educore.ingestion</include>
+										<include>com.educore.ingestion.*</include>
+									</includes>
+									<limits>
+										<limit>
+											<counter>INSTRUCTION</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>0.85</minimum>
+										</limit>
+										<limit>
+											<counter>BRANCH</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>0.55</minimum>
+										</limit>
+									</limits>
+								</rule>
+							</rules>
+						</configuration>
+					</execution>
 				</executions>
+			</plugin>
+
+			<!-- SBOM: `mvn cyclonedx:makeBom` writes ${buildDirName}/bom.json (runtime dependency graph).
+			     Not bound to a phase; the supply-chain CI workflow invokes it and uploads the file. -->
+			<plugin>
+				<groupId>org.cyclonedx</groupId>
+				<artifactId>cyclonedx-maven-plugin</artifactId>
+				<version>2.9.3</version>
+				<configuration>
+					<projectType>application</projectType>
+					<outputFormat>json</outputFormat>
+					<outputName>bom</outputName>
+					<includeTestScope>false</includeTestScope>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>

@@ -35,11 +35,12 @@ class LoginIT extends AuthIntegrationSupport {
         assertThat(body.get("expiresIn").asLong()).isEqualTo(900);
         JsonNode user = body.get("user");
         assertThat(user.fieldNames()).toIterable()
-                .containsExactlyInAnyOrder("id", "firstName", "role", "mustChangePassword");
+                .containsExactlyInAnyOrder("id", "firstName", "role", "mustChangePassword", "status");
         assertThat(user.get("id").asLong()).isEqualTo(account.getId());
         assertThat(user.get("firstName").asText()).isEqualTo("Test");
         assertThat(user.get("role").asText()).isEqualTo("USER");
         assertThat(user.get("mustChangePassword").asBoolean()).isFalse();
+        assertThat(user.get("status").asText()).isEqualTo("ACTIVE");
 
         mockMvc.perform(meRequest(accessToken(body)))
                 .andExpect(status().isOk())

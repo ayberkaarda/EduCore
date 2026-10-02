@@ -26,12 +26,17 @@ class ProdStartupGuardIT {
     private static Map<String, Object> completeProdEnvironment() {
         Map<String, Object> env = new HashMap<>();
         env.put("EDUCORE_DB_URL", "jdbc:postgresql://127.0.0.1:1/unreachable");
-        env.put("EDUCORE_DB_USERNAME", "guard-test");
-        env.put("EDUCORE_DB_PASSWORD", "guard-test-db-value");
+        env.put("EDUCORE_DB_APP_USERNAME", "guard_app");
+        env.put("EDUCORE_DB_APP_PASSWORD", "guard-test-db-value");
+        env.put("EDUCORE_DB_MIGRATION_USERNAME", "guard_owner");
+        env.put("EDUCORE_DB_MIGRATION_PASSWORD", "guard-test-owner-value");
+        env.put("EDUCORE_ERASURE_LEDGER_FILE", "/var/lib/educore/erasure-ledger.log");
         env.put("EDUCORE_JWT_SECRET", "guard-test-jwt-value");
         env.put("EDUCORE_LOGIN_PEPPER", "guard-test-pepper-value");
+        env.put("EDUCORE_ENCRYPTION_KEY", "guard-test-encryption-value");
         env.put("EDUCORE_BOOTSTRAP_ADMIN_USERNAME", "guard-admin");
         env.put("EDUCORE_BOOTSTRAP_ADMIN_PASSWORD", "guard-test-admin-value");
+        env.put("EDUCORE_SEO_BASE_URL", "https://guard.example.org");
         return env;
     }
 
@@ -62,8 +67,87 @@ class ProdStartupGuardIT {
         assertThat(failure).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Refusing to start with profile 'prod'");
         assertThat(failure.getMessage()).contains(
-                "EDUCORE_DB_URL", "EDUCORE_DB_USERNAME", "EDUCORE_DB_PASSWORD", "EDUCORE_JWT_SECRET",
-                "EDUCORE_LOGIN_PEPPER", "EDUCORE_BOOTSTRAP_ADMIN_USERNAME", "EDUCORE_BOOTSTRAP_ADMIN_PASSWORD");
+                "EDUCORE_DB_URL", "EDUCORE_DB_APP_USERNAME", "EDUCORE_DB_APP_PASSWORD", "EDUCORE_DB_MIGRATION_USERNAME",
+                "EDUCORE_DB_MIGRATION_PASSWORD", "EDUCORE_ERASURE_LEDGER_FILE", "EDUCORE_JWT_SECRET",
+                "EDUCORE_LOGIN_PEPPER", "EDUCORE_ENCRYPTION_KEY", "EDUCORE_BOOTSTRAP_ADMIN_USERNAME",
+                "EDUCORE_BOOTSTRAP_ADMIN_PASSWORD", "EDUCORE_SEO_BASE_URL");
+    }
+
+    /**
+     * AC-15: prod needs two database roles. A single-user setup (the application connecting as the schema owner,
+     * a superuser in the compose image) is refused, also when only the legacy EDUCORE_DB_USERNAME is set.
+     */
+    @Test
+    void refusesTheMigrationOwnerAsTheRuntimeRole() {
+        Map<String, Object> env = completeProdEnvironment();
+        env.put("EDUCORE_DB_MIGRATION_USERNAME", "GUARD_APP");
+
+        Throwable failure = startProd(env);
+
+        assertThat(failure).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("EDUCORE_DB_APP_USERNAME (the runtime role) must differ from "
+                        + "EDUCORE_DB_MIGRATION_USERNAME")
+                .hasMessageNotContaining("guard_app");
+
+        Map<String, Object> legacy = completeProdEnvironment();
+        legacy.remove("EDUCORE_DB_APP_USERNAME");
+        legacy.put("EDUCORE_DB_USERNAME", "guard_owner");
+        assertThat(startProd(legacy)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("must differ from EDUCORE_DB_MIGRATION_USERNAME");
+    }
+
+    @Test
+    void namesTheMissingMigrationRoleAndErasureLedger() {
+        Map<String, Object> env = completeProdEnvironment();
+        env.remove("EDUCORE_DB_MIGRATION_USERNAME");
+        env.remove("EDUCORE_DB_MIGRATION_PASSWORD");
+        env.remove("EDUCORE_ERASURE_LEDGER_FILE");
+
+        Throwable failure = startProd(env);
+
+        assertThat(failure).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not set: EDUCORE_DB_MIGRATION_USERNAME, EDUCORE_DB_MIGRATION_PASSWORD, "
+                        + "EDUCORE_ERASURE_LEDGER_FILE.");
+    }
+
+    /** prod has no default for the public origin: the development default never reaches production. */
+    @Test
+    void namesTheMissingSeoBaseUrl() {
+        Map<String, Object> env = completeProdEnvironment();
+        env.remove("EDUCORE_SEO_BASE_URL");
+
+        Throwable failure = startProd(env);
+
+        assertThat(failure).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not set: EDUCORE_SEO_BASE_URL.");
+    }
+
+    /** An http origin or a localhost origin would break refresh/logout (Origin check) and publish wrong sitemaps. */
+    @Test
+    void refusesAnHttpOrLocalhostSeoBaseUrl() {
+        for (String origin : java.util.List.of("http://educore.example.org", "http://localhost:3000",
+                "https://localhost", "https://127.0.0.1:8443", "https://[::1]")) {
+            Map<String, Object> env = completeProdEnvironment();
+            env.put("EDUCORE_SEO_BASE_URL", origin);
+
+            Throwable failure = startProd(env);
+
+            assertThat(failure).as(origin).isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("EDUCORE_SEO_BASE_URL must be the public https origin")
+                    .hasMessageNotContaining(origin);
+        }
+    }
+
+    @Test
+    void namesOnlyTheMissingEncryptionKey() {
+        Map<String, Object> env = completeProdEnvironment();
+        env.remove("EDUCORE_ENCRYPTION_KEY");
+
+        Throwable failure = startProd(env);
+
+        assertThat(failure).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not set: EDUCORE_ENCRYPTION_KEY.")
+                .hasMessageNotContaining("guard-test-encryption-value");
     }
 
     @Test

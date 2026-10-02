@@ -5,6 +5,7 @@ import com.educore.entity.Course;
 import com.educore.entity.Role;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -14,6 +15,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -41,6 +43,7 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
@@ -58,6 +61,14 @@ class AuthorizationMatrixIT extends AuthzIntegrationSupport {
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final AtomicInteger IP_RULE_SEQUENCE = new AtomicInteger(1);
+    private static final AtomicInteger DENY_RULE_SEQUENCE = new AtomicInteger(1);
+    /** Webhook URLs of matrix fixtures; nothing is sent (the dispatcher is off in the test profile). */
+    private static final String MATRIX_WEBHOOK_URL = "https://matrix-hook.example.com/";
+
+    @AfterEach
+    void removeWebhookFixtures() {
+        jdbc.update("DELETE FROM webhook_subscription WHERE url LIKE ?", MATRIX_WEBHOOK_URL + "%");
+    }
 
     enum Column { ADMIN, USER_SELF, USER_OTHER, ANONYMOUS }
 
@@ -89,6 +100,10 @@ class AuthorizationMatrixIT extends AuthzIntegrationSupport {
 
         boolean isEndpoint() {
             return "ENDPOINT".equals(kind);
+        }
+
+        boolean isSite() {
+            return "SITE".equals(kind);
         }
 
         boolean adminOnly() {
@@ -143,6 +158,16 @@ class AuthorizationMatrixIT extends AuthzIntegrationSupport {
             return course();
         }
 
+        /** The slug of a fresh published course (public catalog rows). */
+        String publishedCourseSlug() {
+            String slug = "authz-public-" + UUID.randomUUID();
+            String name = "authz-course-" + slug;
+            cleanUpCourseName(name);
+            courseRepository.saveAndFlush(Course.builder().name(name).term("2026/1").instructor("Instructor Public")
+                    .slug(slug).description("Public matrix course.").published(true).build());
+            return slug;
+        }
+
         /** A fresh course the given account is enrolled in. */
         Course enrolledCourse(Account account) {
             Course course = course();
@@ -169,12 +194,32 @@ class AuthorizationMatrixIT extends AuthzIntegrationSupport {
             return value;
         }
 
-        long ipRuleId() {
-            return ipRule("198.19.0.0/24", 0xC6130000L, 0xC61300FFL).getId();
+        long ipAllocationId() {
+            return ipAllocation("198.19.0.0/24", 0xC6130000L, 0xC61300FFL).getId();
+        }
+
+        /** An address in 198.19.128.0/17 for a deny rule; no test sends requests from there. */
+        String newDenyRuleValue() {
+            int n = DENY_RULE_SEQUENCE.getAndIncrement();
+            String value = "198.19." + (128 + ((n >> 8) & 0x7f)) + "." + (n & 0xff);
+            cleanUpDenyRuleValue(value);
+            return value;
+        }
+
+        long denyRuleId() {
+            return denyRule(newDenyRuleValue());
         }
 
         long jobLogId() {
             return jobLog().getId();
+        }
+
+        /** A fresh webhook subscription (removed by {@link #removeWebhookFixtures()}). */
+        long webhookId() {
+            return jdbc.queryForObject("INSERT INTO webhook_subscription "
+                    + "(url, events, secret_encrypted, active, created_at, updated_at) "
+                    + "VALUES (?, ARRAY['course.updated'], 'v1:matrix-fixture', true, now(), now()) RETURNING id",
+                    Long.class, MATRIX_WEBHOOK_URL + UUID.randomUUID());
         }
 
         String refreshCookieOf(Account account) throws Exception {
@@ -241,17 +286,58 @@ class AuthorizationMatrixIT extends AuthzIntegrationSupport {
                 map("name", cell.newCourseName(), "term", "2026/2", "instructor", "Instructor Matrix")));
         routes.put("24", cell -> delete("/api/v1/admin/courses/"
                 + cell.freshCourse().getId()));
-        routes.put("25", cell -> get("/api/v1/admin/ip-rules"));
-        routes.put("26", cell -> jsonPost("/api/v1/admin/ip-rules",
+        routes.put("25", cell -> get("/api/v1/admin/ip-allocations"));
+        routes.put("26", cell -> jsonPost("/api/v1/admin/ip-allocations",
                 map("type", "STATIC", "originalValue", cell.newIpRuleValue())));
-        routes.put("27", cell -> delete("/api/v1/admin/ip-rules/"
-                + cell.ipRuleId()));
+        routes.put("27", cell -> delete("/api/v1/admin/ip-allocations/"
+                + cell.ipAllocationId()));
         routes.put("28", cell -> get("/api/v1/admin/job-logs"));
         routes.put("29", cell -> delete("/api/v1/admin/job-logs")
                 .param("ids", String.valueOf(cell.jobLogId())));
         routes.put("30", cell -> get("/api/v1/admin/security-events"));
-        // 31 (/api/v1/public/**) has no endpoint yet. 32: removed and unknown paths.
+        // 31 (/api/v1/public/**) is the URL rule as a whole. 32: removed and unknown paths.
         routes.put("32", cell -> get("/api/v1/accounts/students"));
+        // 40-44: anonymous public site (published courses only).
+        routes.put("40", cell -> get("/api/v1/public/courses"));
+        routes.put("41", cell -> get("/api/v1/public/courses/" + cell.publishedCourseSlug()));
+        routes.put("42", cell -> get("/api/v1/public/site-facts"));
+        routes.put("43", cell -> get("/sitemap.xml"));
+        routes.put("44", cell -> get("/sitemap-courses-1.xml"));
+        // 50-54: request-level IP deny rules (P5), ADMIN only.
+        routes.put("50", cell -> get("/api/v1/admin/ip-rules"));
+        routes.put("51", cell -> jsonPost("/api/v1/admin/ip-rules",
+                map("kind", "STATIC", "value", cell.newDenyRuleValue(), "reason", "matrix")));
+        routes.put("52", cell -> get("/api/v1/admin/ip-rules/" + cell.denyRuleId()));
+        routes.put("53", cell -> jsonPut("/api/v1/admin/ip-rules/" + cell.denyRuleId(),
+                map("kind", "STATIC", "value", cell.newDenyRuleValue(), "reason", "matrix")));
+        routes.put("54", cell -> delete("/api/v1/admin/ip-rules/" + cell.denyRuleId()));
+        // 60-68: ingestion and webhooks, ADMIN only.
+        routes.put("60", cell -> get("/api/v1/admin/job-logs/" + cell.jobLogId() + "/entries"));
+        routes.put("61", cell -> multipart("/api/v1/admin/imports").file(new MockMultipartFile("file",
+                "matrix-courses.csv", "text/csv", ("name,term,instructor\nauthz-upload-" + UUID.randomUUID()
+                + ",2026/1,Instructor Matrix\n").getBytes(StandardCharsets.UTF_8))));
+        routes.put("62", cell -> get("/api/v1/admin/webhooks"));
+        routes.put("63", cell -> jsonPost("/api/v1/admin/webhooks",
+                map("url", MATRIX_WEBHOOK_URL + UUID.randomUUID(), "events", List.of("course.updated"))));
+        routes.put("64", cell -> get("/api/v1/admin/webhooks/" + cell.webhookId()));
+        routes.put("65", cell -> jsonPut("/api/v1/admin/webhooks/" + cell.webhookId(),
+                map("url", MATRIX_WEBHOOK_URL + UUID.randomUUID(), "events", List.of("import.failed"),
+                        "active", false)));
+        routes.put("66", cell -> delete("/api/v1/admin/webhooks/" + cell.webhookId()));
+        routes.put("67", cell -> post("/api/v1/admin/webhooks/" + cell.webhookId() + "/test"));
+        routes.put("68", cell -> get("/api/v1/admin/webhooks/" + cell.webhookId() + "/deliveries"));
+        // 70-73: account lifecycle (P7). The deletion request needs the current password; restore of an active
+        // account is a no-op 200; every cell exports with a fresh account (1 export per account and minute).
+        routes.put("70", cell -> delete("/api/v1/me").contentType(MediaType.APPLICATION_JSON)
+                .content(JSON.writeValueAsString(map("currentPassword", PASSWORD))));
+        routes.put("71", cell -> post("/api/v1/me/restore").contentType(MediaType.APPLICATION_JSON)
+                .content(JSON.writeValueAsString(map("currentPassword", PASSWORD))));
+        routes.put("72", cell -> get("/api/v1/me/export"));
+        routes.put("73", cell -> post("/api/v1/admin/accounts/" + cell.target().getId() + "/restore"));
+        // 74: hard delete with the confirmation in the body (R-22); 75: clear the login lockout (R-01).
+        routes.put("74", cell -> jsonPost("/api/v1/admin/accounts/" + cell.target().getId() + "/purge",
+                map("confirm", cell.target().getUsername())));
+        routes.put("75", cell -> post("/api/v1/admin/accounts/" + cell.target().getId() + "/unlock-login"));
         return routes;
     }
 
@@ -287,7 +373,7 @@ class AuthorizationMatrixIT extends AuthzIntegrationSupport {
 
         // The factory really exercises the row: same method, URI matching the mapping pattern.
         assertThat(result.getRequest().getMethod()).isEqualTo(row.method());
-        if (row.isEndpoint()) {
+        if (row.isEndpoint() || row.isSite()) {
             assertThat(result.getRequest().getRequestURI()).matches(row.path().replaceAll("\\{[^/]+}", "[^/]+"));
         }
         assertThat(result.getResponse().getStatus())
@@ -334,7 +420,9 @@ class AuthorizationMatrixIT extends AuthzIntegrationSupport {
                 assertThat(preAuthorize).as("@PreAuthorize on %s", key).isNotNull();
                 assertThat(preAuthorize.value()).as(key).isEqualTo("hasRole('ADMIN')");
             } else if (row.anonymousAllowed()) {
-                assertThat(anonymousUrlRules).as("anonymous URL rule for %s", key).contains(key);
+                assertThat(anonymousUrlRules.contains(key) || key.startsWith("GET /api/v1/public/"))
+                        .as("anonymous URL rule for %s", key).isTrue();
+                assertThat(preAuthorize).as("an anonymous route needs no role check: %s", key).isNull();
             } else {
                 assertThat(row.anonymous()).as(key).isEqualTo("401");
                 assertThat(row.path()).as(key).doesNotStartWith("/api/v1/admin/");
@@ -356,6 +444,21 @@ class AuthorizationMatrixIT extends AuthzIntegrationSupport {
                     + row.admin() + " | " + row.userSelf() + " | " + row.userOther() + " | " + row.anonymous() + " |";
             assertThat(tableRows).as("document row for %s", row).anyMatch(line -> line.startsWith(expectedPrefix));
         }
+    }
+
+    /** Handlers outside /api/** (other than the error path) are SITE rows, one each, all anonymous. */
+    @Test
+    void everyMappedSiteHandlerHasExactlyOneMatrixRow() {
+        Set<String> handlers = new TreeSet<>();
+        handlerMapping.getHandlerMethods().forEach((info, handler) -> info.getPatternValues().stream()
+                .filter(pattern -> !pattern.startsWith("/api/") && !pattern.startsWith("/error"))
+                .forEach(pattern -> info.getMethodsCondition().getMethods()
+                        .forEach(method -> handlers.add(method.name() + " " + pattern))));
+        Set<String> rows = matrix().stream().filter(MatrixRow::isSite).map(MatrixRow::key)
+                .collect(Collectors.toCollection(TreeSet::new));
+
+        assertThat(handlers).as("mapped non-API handlers vs rbac-matrix.csv SITE rows").isEqualTo(rows);
+        assertThat(matrix().stream().filter(MatrixRow::isSite)).allMatch(MatrixRow::anonymousAllowed);
     }
 
     private Map<String, HandlerMethod> apiHandlers() {

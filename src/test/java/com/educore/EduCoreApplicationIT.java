@@ -53,7 +53,9 @@ class EduCoreApplicationIT extends AbstractIntegrationTest {
                 .map(info -> info.getVersion().getVersion()).toList();
         List<String> repeatables = Arrays.stream(applied).filter(info -> info.getVersion() == null)
                 .map(MigrationInfo::getDescription).toList();
-        assertThat(versions).containsExactly("1", "2", "4", "10", "11", "20");
+        // Later phases append their own migrations (V30+ ingestion and webhooks, ...); order is by version.
+        assertThat(versions).startsWith("1", "2", "4", "10", "11", "12", "13", "20", "21", "22", "23").contains("30", "31", "40", "41", "42")
+                .isSortedAccordingTo(java.util.Comparator.comparing(Integer::valueOf));
         assertThat(repeatables).containsExactly("dev seed");
         assertThat(applied).allSatisfy(info -> assertThat(info.getState()).isEqualTo(MigrationState.SUCCESS));
         assertThat(flyway.info().pending()).isEmpty();

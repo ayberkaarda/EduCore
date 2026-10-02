@@ -49,7 +49,8 @@ class FlywayLegacyAdoptionIT {
         List<String> migrated = Arrays.stream(applied).skip(1)
                 .map(info -> info.getVersion() == null ? "R:" + info.getDescription() : info.getVersion().getVersion())
                 .toList();
-        assertThat(migrated).containsExactly("2", "4", "10", "11", "20", "R:dev seed");
+        assertThat(migrated).containsExactly("2", "4", "10", "11", "12", "13", "20", "21", "22", "23", "30", "31", "32", "33", "34", "40", "41", "42",
+                "R:dev seed");
         assertThat(applied).allSatisfy(info -> assertThat(info.getState())
                 .isIn(MigrationState.BASELINE, MigrationState.SUCCESS));
         assertThat(flyway.info().pending()).isEmpty();

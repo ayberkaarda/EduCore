@@ -5,6 +5,7 @@ import com.educore.account.ProfileService;
 import com.educore.account.UpdateProfileRequest;
 import com.educore.common.web.ApiProblemException;
 import com.educore.entity.Account;
+import com.educore.entity.AccountStatus;
 import com.educore.entity.Role;
 import com.educore.security.AuthenticatedUser;
 import org.junit.jupiter.api.AfterEach;
@@ -100,7 +101,7 @@ class ConcurrentAccountUpdateIT extends AuthzIntegrationSupport {
         run.first().get(30, TimeUnit.SECONDS);
         run.second().get(30, TimeUnit.SECONDS);
         Account stored = reload(target);
-        assertThat(stored.getDeleted()).isEqualTo(1);
+        assertThat(stored.getStatus()).isEqualTo(AccountStatus.DEACTIVATED);
         assertThat(stored.getFirstName()).isEqualTo("Edited");
     }
 
@@ -117,14 +118,14 @@ class ConcurrentAccountUpdateIT extends AuthzIntegrationSupport {
                 () -> profileService.update(AuthenticatedUser.of(target), names()), target);
 
         run.first().get(30, TimeUnit.SECONDS);
-        // The edit re-checks deleted = 0 after the lock is released and updates nothing.
+        // The edit re-checks status = ACTIVE after the lock is released and updates nothing.
         assertThatThrownBy(() -> run.second().get(30, TimeUnit.SECONDS))
                 .isInstanceOf(ExecutionException.class)
                 .hasCauseInstanceOf(ApiProblemException.class)
                 .satisfies(e -> assertThat(((ApiProblemException) e.getCause()).code())
                         .isEqualTo("account/not-found"));
         Account stored = reload(target);
-        assertThat(stored.getDeleted()).isEqualTo(1);
+        assertThat(stored.getStatus()).isEqualTo(AccountStatus.DEACTIVATED);
         assertThat(stored.getFirstName()).isEqualTo(target.getFirstName());
     }
 

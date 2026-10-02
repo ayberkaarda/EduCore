@@ -136,8 +136,12 @@ class AuthConcurrencyIT extends AuthIntegrationSupport {
         }
     }
 
+    /**
+     * Twelve parallel failures from twelve networks: no (username, client) pair reaches the lock, but the per-account
+     * progressive delay admits exactly the free failures; the rest are throttled without a password check.
+     */
     @Test
-    void parallelFailuresFromManyIpsNeverPassTheLockThreshold() throws Exception {
+    void parallelFailuresFromManyIpsNeverPassTheThrottleThreshold() throws Exception {
         Account account = createAccount(false);
         List<Callable<AuthService.Session>> tasks = new ArrayList<>();
         for (int i = 0; i < 12; i++) {
@@ -148,17 +152,17 @@ class AuthConcurrencyIT extends AuthIntegrationSupport {
 
         assertThat(results).noneMatch(Concurrently.Result::succeeded);
         assertThat(results.stream().map(Concurrently.Result::problemCode).toList())
-                .containsOnly("auth/invalid-credentials", "auth/account-locked")
+                .containsOnly("auth/invalid-credentials", "auth/too-many-attempts")
                 .filteredOn("auth/invalid-credentials"::equals).hasSize(5);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM login_attempt WHERE username_hash = ?", Long.class,
                 usernameHasher.hash(account.getUsername()))).isEqualTo(5);
         assertThatThrownBy(() -> login(account, PASSWORD))
                 .isInstanceOfSatisfying(AuthProblemException.class,
-                        problem -> assertThat(problem.code()).isEqualTo("auth/account-locked"));
+                        problem -> assertThat(problem.code()).isEqualTo("auth/too-many-attempts"));
     }
 
     @Test
-    void parallelWrongCurrentPasswordsShareTheLoginLockThreshold() throws Exception {
+    void parallelWrongCurrentPasswordsShareTheLoginThrottle() throws Exception {
         Account account = createAccount(false);
         AuthenticatedUser user = AuthenticatedUser.of(account);
         List<Callable<AuthService.Session>> tasks = new ArrayList<>();
@@ -170,13 +174,13 @@ class AuthConcurrencyIT extends AuthIntegrationSupport {
         List<Concurrently.Result<AuthService.Session>> results = Concurrently.run(tasks);
 
         assertThat(results.stream().map(Concurrently.Result::problemCode).toList())
-                .containsOnly("auth/invalid-current-password", "auth/account-locked")
+                .containsOnly("auth/invalid-current-password", "auth/too-many-attempts")
                 .filteredOn("auth/invalid-current-password"::equals).hasSize(5);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM login_attempt WHERE username_hash = ?", Long.class,
                 usernameHasher.hash(account.getUsername()))).isEqualTo(5);
         assertThatThrownBy(() -> login(account, PASSWORD))
                 .isInstanceOfSatisfying(AuthProblemException.class,
-                        problem -> assertThat(problem.code()).isEqualTo("auth/account-locked"));
+                        problem -> assertThat(problem.code()).isEqualTo("auth/too-many-attempts"));
     }
 
     @Test

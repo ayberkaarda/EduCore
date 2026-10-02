@@ -1,8 +1,9 @@
 package com.educore.authz;
 
 import com.educore.entity.Account;
+import com.educore.entity.AccountStatus;
 import com.educore.entity.Course;
-import com.educore.entity.IpBlock;
+import com.educore.ipaccess.IpAllocationRange;
 import com.educore.entity.JobLog;
 import com.educore.entity.Role;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -79,13 +80,25 @@ class AuditEventIT extends AuthzIntegrationSupport {
 
         String value = "198.51.100.77";
         cleanUpIpRuleValue(value);
-        Audited ipCreated = audited(admin, post("/api/v1/admin/ip-rules"),
+        Audited ipCreated = audited(admin, post("/api/v1/admin/ip-allocations"),
                 map("type", "STATIC", "originalValue", value));
-        long ipRuleId = body(ipCreated.result()).get("id").asLong();
-        assertEvent(ipCreated, "IP_RULE_CHANGED", admin, null,
-                Map.of("action", "CREATED", "ipRuleId", ipRuleId, "type", "STATIC"));
+        long ipAllocationId = body(ipCreated.result()).get("id").asLong();
+        assertEvent(ipCreated, "IP_ALLOCATION_CHANGED", admin, null,
+                Map.of("action", "CREATED", "ipAllocationId", ipAllocationId, "type", "STATIC"));
+        assertEvent(audited(admin, delete("/api/v1/admin/ip-allocations/" + ipAllocationId), null),
+                "IP_ALLOCATION_CHANGED", admin, null,
+                Map.of("action", "DELETED", "ipAllocationId", ipAllocationId, "type", "STATIC"));
+
+        String denied = "198.19.255.77";
+        cleanUpDenyRuleValue(denied);
+        Audited denyCreated = audited(admin, post("/api/v1/admin/ip-rules"),
+                map("kind", "STATIC", "value", denied, "reason", "audit test"));
+        long ipRuleId = body(denyCreated.result()).get("id").asLong();
+        assertEvent(denyCreated, "IP_RULE_CHANGED", admin, null,
+                Map.of("action", "CREATED", "ipRuleId", ipRuleId, "kind", "STATIC", "source", "MANUAL"));
         assertEvent(audited(admin, delete("/api/v1/admin/ip-rules/" + ipRuleId), null),
-                "IP_RULE_CHANGED", admin, null, Map.of("action", "DELETED", "ipRuleId", ipRuleId, "type", "STATIC"));
+                "IP_RULE_CHANGED", admin, null,
+                Map.of("action", "DELETED", "ipRuleId", ipRuleId, "kind", "STATIC", "source", "MANUAL"));
 
         JobLog log = jobLog();
         assertEvent(audited(admin, delete("/api/v1/admin/job-logs").param("ids", log.getId() + ",999999999"), null),
@@ -97,11 +110,11 @@ class AuditEventIT extends AuthzIntegrationSupport {
         Account admin = account(Role.ADMIN);
         Account user = account(Role.USER);
         Course course = course();
-        IpBlock ipRule = ipRule("203.0.113.0/30", 0xCB007100L, 0xCB007103L);
+        IpAllocationRange ipAllocation = ipAllocation("203.0.113.0/30", 0xCB007100L, 0xCB007103L);
 
         // Refused by authorization.
         assertNoEvent(audited(user, put("/api/v1/admin/accounts/" + user.getId() + "/role"), map("role", "ADMIN")), 403);
-        assertNoEvent(audited(user, delete("/api/v1/admin/ip-rules/" + ipRule.getId()), null), 403);
+        assertNoEvent(audited(user, delete("/api/v1/admin/ip-allocations/" + ipAllocation.getId()), null), 403);
         // Refused by a business guard.
         assertNoEvent(audited(admin, put("/api/v1/admin/accounts/" + admin.getId() + "/role"), map("role", "USER")),
                 409);
@@ -162,7 +175,7 @@ class AuditEventIT extends AuthzIntegrationSupport {
 
         Account stored = accountRepository.findById(student.getId()).orElseThrow();
         assertThat(stored.getRole()).isEqualTo(Role.USER);
-        assertThat(stored.getDeleted()).isZero();
+        assertThat(stored.getStatus()).isEqualTo(AccountStatus.ACTIVE);
         assertThat(courseRepository.findById(course.getId()).orElseThrow().getName()).isEqualTo(course.getName());
         assertThat(enrollmentRepository.existsByAccountIdAndCourseId(student.getId(), course.getId())).isFalse();
         // Without the injected failure the same change commits together with its event.
@@ -191,7 +204,7 @@ class AuditEventIT extends AuthzIntegrationSupport {
     void detailsNeverContainPersonalData() throws Exception {
         Account admin = account(Role.ADMIN);
         Account student = account(Role.USER);
-        IpBlock range = ipRule("192.0.2.0/24", 0xC0000200L, 0xC00002FFL);
+        IpAllocationRange range = ipAllocation("192.0.2.0/24", 0xC0000200L, 0xC00002FFL);
 
         Audited updated = audited(admin, put("/api/v1/admin/accounts/" + student.getId()),
                 map("firstName", "Sensitive-First", "lastName", "Sensitive-Last", "studentNumber", "9790000002222",
