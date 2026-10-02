@@ -1,0 +1,359 @@
+/* Public site (prerendered pages at / and /en). Tokens and theming come from the shared brand tokens; nothing
+   from the /app stylesheet is loaded on these pages. docs/brand/BRAND_IDENTITY.md applies: petrol as the only
+   accent, hairline structure, no gradients, no shadows at rest, sentence case, 65ch measure. */
+@import "../../styles/tokens.css";
+
+/* IBM Plex Sans, self-hosted (Fontsource files), latin + latin-ext only (English and Turkish), swap. */
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-ext-400-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../../../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-500-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../../../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-ext-500-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../../../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../../../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-ext-600-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ---------- Document ---------------------------------------------------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  min-width: 320px;
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+}
+
+h1, h2, h3, p, ul, ol, dl, dd { margin: 0; }
+
+a { color: var(--color-link); text-underline-offset: 0.18em; }
+a:hover { color: var(--color-link-hover); }
+
+[hidden] { display: none !important; }
+
+.pub {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-canvas);
+  color: var(--color-text);
+}
+
+.pub-skip {
+  position: absolute;
+  left: var(--space-4);
+  top: -48px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-sm);
+  z-index: 10;
+}
+.pub-skip:focus { top: var(--space-2); }
+
+/* ---------- Header ------------------------------------------------------ */
+
+.pub-header {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+.pub-header-inner,
+.pub-footer-inner,
+.pub-main {
+  width: 100%;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding-left: var(--space-6);
+  padding-right: var(--space-6);
+}
+.pub-header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-8);
+  min-height: 64px;
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+.pub-brand { display: inline-flex; flex: none; }
+.pub-brand img { display: block; width: 150px; height: 28px; }
+
+.pub-nav ul,
+.pub-lang ul,
+.pub-footer ul,
+.pub-breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.pub-nav a,
+.pub-lang a {
+  display: inline-block;
+  padding: var(--space-1) 0;
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+.pub-nav a:hover,
+.pub-lang a:hover { color: var(--color-text); text-decoration: underline; }
+.pub-nav a[aria-current="page"],
+.pub-lang a[aria-current="true"] {
+  color: var(--color-brand-text);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+.pub-header-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-left: auto;
+}
+.pub-lang ul { gap: var(--space-3); }
+
+.pub-signin,
+.pub-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-input);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-base);
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+}
+.pub-signin:hover,
+.pub-button:hover { background: var(--color-surface-subtle); color: var(--color-text); }
+.pub-button-primary {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+  color: var(--color-text-on-brand);
+}
+.pub-button-primary:hover {
+  background: var(--color-brand-hover);
+  border-color: var(--color-brand-hover);
+  color: var(--color-text-on-brand);
+}
+
+/* ---------- Main content ------------------------------------------------ */
+
+.pub-main {
+  flex: 1;
+  padding-top: var(--space-10);
+  padding-bottom: var(--space-16);
+}
+.pub-main > * + * { margin-top: var(--space-6); }
+
+.pub-main h1 {
+  max-width: 24ch;
+  font-size: var(--text-4xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  text-wrap: balance;
+}
+.pub-hero h1 { max-width: 20ch; }
+.pub-hero > * + * { margin-top: var(--space-5); }
+
+.pub-lead {
+  max-width: 65ch;
+  font-size: var(--text-xl);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+}
+.pub-main p { max-width: 65ch; }
+
+.pub-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+
+.pub-section { padding-top: var(--space-6); border-top: 1px solid var(--color-border); }
+.pub-main > .pub-section { margin-top: var(--space-10); }
+.pub-section > * + * { margin-top: var(--space-3); }
+.pub-section h2 {
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-snug);
+}
+.pub-faq h2 { font-size: var(--text-xl); }
+.pub-main > .pub-faq { margin-top: var(--space-6); }
+
+.pub-bullets { max-width: 65ch; padding-left: 1.25em; }
+.pub-bullets li + li { margin-top: var(--space-2); }
+
+.pub-num { font-variant-numeric: tabular-nums; }
+
+/* ---------- Breadcrumb --------------------------------------------------- */
+
+.pub-breadcrumb { font-size: var(--text-base); color: var(--color-text-secondary); }
+.pub-breadcrumb ol { gap: var(--space-2); }
+.pub-breadcrumb li + li::before { content: "/"; margin-right: var(--space-2); color: var(--color-text-muted); }
+.pub-breadcrumb a { color: var(--color-text-secondary); }
+.pub-breadcrumb [aria-current="page"] { color: var(--color-text); }
+
+/* ---------- Course list and detail -------------------------------------- */
+
+.pub-course-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.pub-course { padding: var(--space-5); }
+.pub-course + .pub-course { border-top: 1px solid var(--color-border); }
+.pub-course > * + * { margin-top: var(--space-2); }
+.pub-course h2,
+.pub-course h3 {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+}
+.pub-course p { color: var(--color-text-secondary); font-size: var(--text-base); }
+.pub-course-meta { font-size: var(--text-base); color: var(--color-text-secondary); }
+
+.pub-course-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-6);
+  font-size: var(--text-base);
+}
+.pub-course-fields div { display: flex; gap: var(--space-2); }
+.pub-course-fields dt { color: var(--color-text-secondary); }
+.pub-course-fields dt::after { content: ":"; }
+.pub-course-fields dd { color: var(--color-text); font-variant-numeric: tabular-nums; }
+.pub-course-fields-detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-4);
+  max-width: 48rem;
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.pub-course-fields-detail div { flex-direction: column; gap: var(--space-1); }
+.pub-course-fields-detail dt { font-size: var(--text-sm); font-weight: 500; }
+.pub-course-fields-detail dt::after { content: none; }
+.pub-article > * + * { margin-top: var(--space-6); }
+
+/* Catalog search island: the slot keeps its height whether or not the form is shown (no layout shift). */
+.pub-search-slot { min-height: 104px; }
+.pub-search { display: grid; gap: var(--space-1); max-width: 28rem; }
+.pub-search label { font-size: var(--text-sm); font-weight: 500; color: var(--color-text-secondary); }
+.pub-search input {
+  height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-base);
+}
+.pub-search input:hover { border-color: var(--color-text-muted); }
+.pub-search input:focus-visible { border-color: var(--color-brand); }
+.pub-hint { font-size: var(--text-sm); color: var(--color-text-muted); }
+.pub-no-match { color: var(--color-text-secondary); font-size: var(--text-base); }
+.pub-main > .pub-no-match { margin-top: 0; }
+
+/* ---------- Facts -------------------------------------------------------- */
+
+.pub-facts {
+  max-width: 48rem;
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.pub-main > .pub-facts { margin-top: var(--space-10); }
+.pub-facts h2 { font-size: var(--text-xl); font-weight: 600; }
+.pub-facts dl { margin-top: var(--space-3); }
+.pub-facts dl > div {
+  display: grid;
+  grid-template-columns: minmax(9rem, 14rem) 1fr;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  font-size: var(--text-base);
+}
+.pub-facts dl > div + div { border-top: 1px solid var(--color-border); }
+.pub-facts dt { color: var(--color-text-secondary); }
+
+/* ---------- Footer ------------------------------------------------------- */
+
+.pub-footer {
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-base);
+  color: var(--color-text-secondary);
+}
+.pub-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-top: var(--space-6);
+  padding-bottom: var(--space-6);
+}
+.pub-footer a { color: var(--color-text-secondary); }
+.pub-footer a:hover { color: var(--color-text); }
+
+/* ---------- Small screens ------------------------------------------------ */
+
+@media (max-width: 720px) {
+  .pub-header-inner,
+  .pub-footer-inner,
+  .pub-main { padding-left: var(--space-4); padding-right: var(--space-4); }
+  .pub-header-tools { margin-left: 0; width: 100%; justify-content: space-between; }
+  .pub-main { padding-top: var(--space-8); }
+  .pub-main h1 { font-size: var(--text-3xl); }
+  .pub-lead { font-size: var(--text-lg); }
+  .pub-facts dl > div { grid-template-columns: 1fr; gap: 0; }
+  .pub-search-slot { min-height: 128px; }
+}
