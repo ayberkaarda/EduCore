@@ -48,7 +48,7 @@ For every environment that ran `DataSeeder` or imported students: log in as each
 Evidence read in the working tree on 2026-10-01:
 
 - `frontend/.neon` (69 bytes) contains only an initialisation marker declaring the `database` feature. It has no project id, branch id, host name, role or connection string.
-- `frontend/skills-lock.json` pins two agent skills from `neondatabase/agent-skills`; it holds hashes only.
+- `frontend/skills-lock.json` is a leftover lock file from an unrelated development tool; it holds hashes only.
 - No `neon.tech` host, `neondb` database name or Neon connection string exists anywhere else in the working tree.
 
 Conclusion: the working tree does not imply a live Neon project or contain Neon credentials. Git history was not inspected (no git commands in P0). Before closing R-4, the owner checks the Neon console for a project created around the date `frontend/.neon` was added; if one exists and is unused, delete it, otherwise reset its role passwords and API keys. The history check is `git log --all -p -S neon.tech` on any clone.

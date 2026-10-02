@@ -1,20 +1,58 @@
-# Decisions Taken on the Owner's Behalf
+# Decision Index
 
-Each decision below is reversible. These record choices made while the owner was away.
+Architecture decisions are recorded as Architecture Decision Records in [`docs/adr/`](adr/README.md). Each
+record holds the context, the decision, its consequences and how to revert it. The short decision ids below
+(`D-nn`, `D-NEW-nn`) are used in commit messages, [`BACKLOG.md`](BACKLOG.md) and the security documents. This
+file maps each id to its record.
 
-| ID | Decision | Basis | How to revert |
-|---|---|---|---|
-| D-01 | Remove Config Server (`config-server/`, `config-repo/`) in P1 and replace it with environment-first configuration. | Recommended in the upgrade program; this is a single-app system, and removing Config Server reduces the attack surface. Executed in P1: both directories deleted, `spring-cloud-starter-config` and `spring.config.import` removed, `config-server` service and `CONFIG_SERVER_URL` dropped from `docker-compose.yml`, `.env.example` and the READMEs. | Restore the two directories from git history and re-add `spring-cloud-starter-config` and `spring.config.import`. |
-| D-02 | Remove SOAP `/ws/**` in P3, including `SoapWebServiceConfig`, `StudentSoapEndpoint`, `students.xsd`, the JAXB plugin, and `web-services`/`wsdl4j`. | Recommended unless an external consumer exists; none was found in the repository. **Executed in P2 (pulled forward from P3 task 6)**: the endpoint created accounts with a plaintext default password, which P2 task 7 forbids. Removed `config/SoapWebServiceConfig.java`, `endpoint/StudentSoapEndpoint.java`, `src/main/resources/students.xsd`, the `jaxb2-maven-plugin` (generated package `com.educore.soap`) and its JaCoCo exclusion, the `spring-boot-starter-web-services` and `wsdl4j` dependencies, and `/ws/**` from the `permitAll` list in `SecurityConfig`. `/ws/**` now requires authentication like every other unlisted path. | Restore the removed SOAP files and build dependencies from git history. |
-| D-04 | Delete `frontend/.neon` and `frontend/skills-lock.json` as leftovers. | Reading confirmed that they contain no connection details. | Restore the files from git history. |
-| D-NEW-01 | Apply the new visual identity in `docs/brand/` to the existing frontend in P0; keep the framework-mode migration in P8. | The owner explicitly requested the visual identity work in P0. | Revert the P0 frontend visual changes and restore the prior frontend styling. |
-| D-NEW-02 | Advance through phases without waiting for per-phase approval. Do not run git operations with the tooling; the owner commits using the commands in phase reports. | The owner requested this workflow. | Resume per-phase approval and/or have the owner choose a different commit workflow. |
-| D-NEW-03 | Store the theme preference in `localStorage` (theme value only), and revisit this in P8. | Theme preference needs to persist; the zero-`localStorage` criterion is scheduled for P8 review. | Remove theme persistence and use a non-persistent default theme. |
-| D-NEW-04 | Spring Boot 3.3.1 → **3.5.16**, Spring Cloud BOM 2023.0.2 → **2025.0.3** (OpenFeign 4.3.3), jjwt 0.11.5 → **0.12.7**, JaCoCo **0.8.15**; Flyway 11.7.2, Testcontainers 1.21.4, Hibernate 6.6.53 and Spring Batch 5.2.6 come from the Boot BOM. | Checked on Maven Central on 2026-10-01: 3.5.16 is the newest 3.x release (the 3.x line ends at 3.5; 4.0/4.1 exist but a major bump needs approval). 2025.0.x is the Spring Cloud train built for Boot 3.5. 0.12.7 is the newest 0.12.x (0.13.0 exists but the program targets the 0.12 API). Testcontainers 1.21.4 works with the local Docker Engine 29 (API 1.55). Boot ≥ 3.4 also unlocks built-in structured JSON logging for P4. | Set the parent version and `spring-cloud.version` back in `pom.xml`; for jjwt, restore the 0.11 builder/parser calls in `JwtService`. |
-| D-NEW-05 | Flyway `baseline-on-migrate=true` with `baseline-version=1` for databases created before Flyway; `V2__spring_batch_schema.sql` uses `CREATE TABLE/SEQUENCE IF NOT EXISTS` with the official definitions. The dev seed is the repeatable `db/seed/dev/R__dev_seed.sql` (idempotent `ON CONFLICT DO NOTHING`), and prod sets `spring.flyway.ignore-migration-patterns=*:future,repeatable:missing`. | Legacy databases always hold the V1 tables but may or may not hold the Batch tables; baselining at 1 lets V2 add only what is missing (an earlier draft used baseline 2, which skipped V2 on databases without Batch tables). A repeatable seed keeps dev/test-only data out of the version sequence, so a database used under dev can later start under prod; prod tolerates only that missing repeatable, while any missing versioned migration still fails validation. Covered by `FlywayLegacyAdoptionIT` and `FlywayProfileSwitchIT`. | Set `spring.flyway.baseline-version` to 2 and restore plain `CREATE` statements; rename the seed back to a versioned file and drop the prod ignore pattern. |
-| D-NEW-06 | Prod fail-fast is an `EnvironmentPostProcessor` (`ProdStartupGuard`) that checks the required variables before any bean is created. | It names every missing variable at once and needs no database. Otherwise the first failing bean (data source, JWT key) would hide the rest. | Remove the `spring.factories` entry; bean-level validation still fails, one variable at a time. |
-| D-NEW-07 | P3 route layout: ADMIN capabilities under `/api/v1/admin/**`, the caller's own data under `/api/v1/me/**`, the read-only catalog at `GET /api/v1/courses`. The pre-P3 routes are removed without compatibility aliases; `docs/api/ROUTES.md` maps every old route to its replacement. | One URL prefix per role lets `SecurityConfig` enforce the matrix before method security runs; aliases would keep the IDOR-prone shapes (`accountId` in bodies and paths for USER calls) reachable. The frontend is adapted from `ROUTES.md` in the same phase. | Re-add mappings for the old paths in the new controllers (same services), keeping the `/admin` URL rule. |
-| D-NEW-08 | `GET /api/weather` becomes `GET /api/v1/weather` and requires authentication (it was anonymous). | The widget is only rendered inside the signed-in layout; an anonymous route lets anyone drive outbound calls to the weather provider (F-25). | Add `/api/v1/weather` to the anonymous `permitAll` list in `SecurityConfig`. |
-| D-NEW-09 | Listing students and accounts is ADMIN-only; a USER sees only their own profile and enrollments. Admin listings take `deleted=true\|false` (default `false`) and no longer return `deleted`; arbitrary `sortBy` is dropped (first name, then id; `direction` kept). | RBAC baseline: USER reads only own data. Responses must not expose internal flags; unrestricted `sortBy` was a P4 finding (F-12) that is cheaper to remove than to whitelist now. | Restore a `deleted` field in `AccountResponse` and/or a whitelisted `sortBy` parameter. |
-| D-NEW-10 | Self role change, self delete and removing the last active ADMIN answer `409` problems (`account/self-role-change`, `account/self-delete`, `account/last-admin`). The guard locks all active ADMIN rows with `SELECT ... FOR UPDATE` before checking. | 409 keeps 403 reserved for the RBAC matrix (the caller is allowed to use the route; the state forbids the change). Without the row lock two ADMINs demoting or deleting each other at the same time could both succeed (covered by `LastAdminGuardIT`). | Change the status in `AccountAdminService`; remove `AccountRepository.lockActiveAdminIds()` only together with another serialisation mechanism. |
-| D-NEW-11 | `SecurityEventRecorder` is replaced by `AuditService` (same table, same API for auth events, plus `recordAction` that takes actor and IP from the current request). Enrollment changes are audited only when the actor is not the account owner; no-op requests write no event. | One writer for the audit trail; self-service enrollment is ordinary user activity, not an admin mutation. | Rename the class back; call `recordAction` unconditionally in `EnrollmentService`. |
+| Id | Decision | Record |
+|---|---|---|
+| D-01 | Remove the Config Server; environment-first configuration | [ADR 0001](adr/0001-remove-config-server.md) |
+| D-02 | Remove the SOAP endpoint `/ws/**` | [ADR 0002](adr/0002-remove-soap-endpoint.md) |
+| D-03 | Prerendered public pages, client-side SPA for the application | [ADR 0003](adr/0003-prerendered-public-site-and-spa.md) |
+| D-04 | Delete leftover frontend files | [ADR 0004](adr/0004-delete-frontend-leftover-files.md) |
+| D-05 | Weather widget proxied and authenticated through the backend | [ADR 0005](adr/0005-weather-proxy-through-backend.md) |
+| D-06 | Spring Batch import jobs replace the hand-written importer | [ADR 0006](adr/0006-spring-batch-import-jobs.md) |
+| D-07 | Delegating bcrypt encoder with upgrade on login | [ADR 0007](adr/0007-password-hashing.md) |
+| D-08 | Short-lived access tokens and rotating refresh tokens | [ADR 0008](adr/0008-access-and-refresh-tokens.md) |
+| D-09 | Split the student IP allow-list from request-level deny rules | [ADR 0009](adr/0009-split-ip-allow-list-and-deny-rules.md) |
+| D-10 | Package root `com.educore` | [ADR 0010](adr/0010-package-rename-com-educore.md) |
+| D-NEW-01 | Apply the brand identity early | [ADR 0011](adr/0011-brand-identity-and-theme-persistence.md) |
+| D-NEW-02 | Phase delivery and commit procedure | Process agreement, not an architectural decision; no ADR |
+| D-NEW-03 | Persist only the theme choice in `localStorage` | [ADR 0011](adr/0011-brand-identity-and-theme-persistence.md) |
+| D-NEW-04 | Dependency baseline: Spring Boot 3.5 | [ADR 0012](adr/0012-dependency-baseline-spring-boot-3-5.md) |
+| D-NEW-05 | Flyway adoption of legacy databases, repeatable dev seed | [ADR 0013](adr/0013-flyway-adoption-and-dev-seed.md) |
+| D-NEW-06 | Production startup guard | [ADR 0014](adr/0014-prod-startup-guard.md) |
+| D-NEW-07 | One URL prefix per role | [ADR 0015](adr/0015-role-based-route-layout.md) |
+| D-NEW-08 | Weather route requires authentication | [ADR 0005](adr/0005-weather-proxy-through-backend.md) |
+| D-NEW-09 | ADMIN-only listings without internal flags | [ADR 0016](adr/0016-admin-only-listings.md) |
+| D-NEW-10 | Self-change and last-ADMIN guards | [ADR 0017](adr/0017-self-change-and-last-admin-guards.md) |
+| D-NEW-11 | One audit writer | [ADR 0018](adr/0018-single-audit-writer.md) |
+| D-NEW-12 | RFC 9457 Problem Details as the only error shape | [ADR 0019](adr/0019-problem-details-error-model.md) |
+| D-NEW-13 | Strict paging and whitelisted sorting | [ADR 0020](adr/0020-paging-sorting-and-input-validation.md) |
+| D-NEW-14 | Allow-list input validation | [ADR 0020](adr/0020-paging-sorting-and-input-validation.md) |
+| D-NEW-15 | Escaped LIKE patterns | [ADR 0021](adr/0021-query-construction-safety.md) |
+| D-NEW-16 | Bytecode rule against runtime-built queries | [ADR 0021](adr/0021-query-construction-safety.md) |
+| D-NEW-17 | Job-log JSON serialisation (superseded by the ingestion pipeline) | [ADR 0022](adr/0022-job-log-json-serialisation.md) |
+| D-NEW-18 | Request size limits, strict JSON binding, problem-shaped CORS rejections | [ADR 0023](adr/0023-request-size-and-binding-limits.md) |
+| D-NEW-19 | ECS structured logging with PII masking | [ADR 0024](adr/0024-structured-logging-and-pii-masking.md) |
+| D-NEW-20 | Request and multipart size limits | [ADR 0023](adr/0023-request-size-and-binding-limits.md) |
+| D-NEW-30 | File ingestion pipeline | [ADR 0026](adr/0026-ingestion-pipeline.md) |
+| D-NEW-31 | Signed outbound webhooks | [ADR 0027](adr/0027-signed-outbound-webhooks.md) |
+| D-NEW-40 | Anonymous public course catalog | [ADR 0028](adr/0028-public-course-catalog.md) |
+| D-NEW-50 | Perimeter: HTTPS requirement, trusted proxies, rate limiting | [ADR 0025](adr/0025-perimeter-https-proxies-and-rate-limiting.md) |
+| D-NEW-51 | Perimeter review fixes: deny order, address normalisation, admission store | [ADR 0025](adr/0025-perimeter-https-proxies-and-rate-limiting.md) |
+| D-NEW-70 | Account lifecycle and 30-day grace period | [ADR 0029](adr/0029-account-lifecycle-and-grace-period.md) |
+| D-NEW-71 | Audit pseudonymisation and retention | [ADR 0030](adr/0030-audit-pseudonymisation-and-retention.md) |
+| D-NEW-72 | Self-service personal data export | [ADR 0031](adr/0031-personal-data-export.md) |
+| D-NEW-80 | Login keys, per-pair lockout, progressive delay, unlock endpoint | [ADR 0032](adr/0032-login-keys-lockout-and-progressive-delay.md) |
+| D-NEW-81 | Session epoch and password-protected restore | [ADR 0033](adr/0033-session-epoch-and-password-protected-restore.md) |
+| D-NEW-82 | Server-enforced password-change scope | [ADR 0034](adr/0034-server-enforced-password-change-scope.md) |
+| D-NEW-83 | Purge route, derived pseudonym key, explicit binding, dev-seed guard | [ADR 0035](adr/0035-purge-route-pseudonym-key-and-production-guards.md) |
+| D-NEW-90 | Erase processed CSV files by default | [ADR 0036](adr/0036-erase-processed-csv-files.md) |
+| D-NEW-91 | Erasure ledger replayed after every restore | [ADR 0037](adr/0037-erasure-ledger-replayed-after-restore.md) |
+| D-NEW-92 | Least-privilege database runtime role | [ADR 0038](adr/0038-least-privilege-database-runtime-role.md) |
+| D-NEW-93 | Ingestion lease fencing, webhook DNS deadline, edge logs without query strings | [ADR 0039](adr/0039-ingestion-lease-fencing-dns-deadline-and-edge-logs.md) |
+
+A new decision gets the next free ADR number in [`docs/adr/`](adr/README.md) and, if it needs a short id, a row
+here.

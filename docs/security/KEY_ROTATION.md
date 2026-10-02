@@ -40,11 +40,19 @@ Refresh tokens are opaque random values stored as SHA-256 hashes in `refresh_tok
 
 ## Residual access-token validity after logout and password change
 
-Access tokens are stateless and are not revoked. Logout revokes the refresh token family and a password
-change revokes every refresh token of the account, so no new access token can be obtained, but an access
-token issued before the logout or password change stays usable until it expires: up to **15 minutes after
+Access tokens are stateless and are not revoked individually. Logout revokes the refresh token family and a
+password change revokes every refresh token of the account, so no new access token can be obtained, but an
+access token issued before the logout or password change stays usable until it expires: up to **15 minutes after
 issue plus 30 seconds of clock skew**. Soft-deleting or removing an account, or removing its role, takes
-effect on the next request because the account is loaded for every bearer token. When a stolen access
+effect on the next request because the account is loaded for every bearer token.
+
+Session epoch (since fix1, `V22__account_session_epoch.sql`): every access token carries the account's
+`session_epoch` (`sep` claim; tokens without it count as epoch 0) and `JwtAuthenticationFilter` rejects a token
+whose epoch differs from the stored one. The owner's deletion request, an ADMIN soft delete, an ADMIN restore and
+the owner's restore increment the epoch and revoke every refresh family, so for these lifecycle changes there is
+**no residual validity**: earlier access tokens answer 401 on their next request and no session survives a
+deactivate → restore cycle (R-16, R-20). Logout and password change keep the residual window above (BACKLOG
+B-084). When a stolen access
 token must stop working at once, use the emergency rotation below: it invalidates every access token at once, and clients
 with a valid refresh token obtain a new one.
 `AccessTokenResidualValidityIT` pins this behaviour.
@@ -68,7 +76,7 @@ with a valid refresh token obtain a new one.
 
 ## Related secret: `EDUCORE_LOGIN_PEPPER`
 
-`EDUCORE_LOGIN_PEPPER` keys the HMAC-SHA-256 under which usernames are stored in `login_attempt`. It is not used for tokens. Rotating it only resets the failed-login counters (existing rows no longer match), which briefly lifts active lockouts; rotate it when it may have leaked, not on a schedule.
+`EDUCORE_LOGIN_PEPPER` keys the HMAC-SHA-256 under which usernames are stored in `login_attempt`. It is not used for tokens. The audit pseudonyms of purged accounts use a key derived from it for that purpose only (`HMAC(label, pepper)`, `lifecycle/Pseudonyms`), so a login username can never reproduce a pseudonym; rotating the pepper also changes the pseudonym of later purges (earlier ones stay as written). Rotating it only resets the failed-login counters (existing rows no longer match), which briefly lifts active lockouts; rotate it when it may have leaked, not on a schedule.
 
 ## Where the values live
 

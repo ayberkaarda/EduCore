@@ -1,0 +1,2140 @@
+openapi: 3.1.0
+info:
+  description: "Course catalog, enrollment, account administration, CSV ingestion\
+    \ and webhooks. Errors are RFC 9457 problem details (application/problem+json).\
+    \ Authenticate with POST /api/v1/auth/login and send the access token as 'Authorization:\
+    \ Bearer <token>'."
+  title: EduCore API
+  version: v1
+servers:
+- description: Same origin as the web application
+  url: /
+security:
+- bearerAuth: []
+paths:
+  /api/v1/admin/accounts:
+    get:
+      operationId: searchAccounts
+      parameters:
+      - in: query
+        name: search
+        required: false
+        schema:
+          type: string
+          default: ""
+          maxLength: 100
+          minLength: 0
+          pattern: "^[^\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Cs}]*$"
+      - in: query
+        name: deleted
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 10
+          maximum: 100
+          minimum: 1
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: direction
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PageResponseAccountResponse"
+          description: OK
+      tags:
+      - account-admin-controller
+  /api/v1/admin/accounts/students:
+    get:
+      operationId: searchStudents
+      parameters:
+      - in: query
+        name: search
+        required: false
+        schema:
+          type: string
+          default: ""
+          maxLength: 100
+          minLength: 0
+          pattern: "^[^\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Cs}]*$"
+      - in: query
+        name: deleted
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 10
+          maximum: 100
+          minimum: 1
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: direction
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PageResponseAccountResponse"
+          description: OK
+      tags:
+      - account-admin-controller
+    post:
+      operationId: createStudent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStudentRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CreatedStudentResponse"
+          description: OK
+      tags:
+      - account-admin-controller
+  /api/v1/admin/accounts/{accountId}:
+    delete:
+      operationId: deleteAccount
+      parameters:
+      - in: path
+        name: accountId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      - in: query
+        name: mode
+        required: false
+        schema:
+          type: string
+          default: soft
+          pattern: soft
+      responses:
+        "200":
+          description: OK
+      tags:
+      - account-admin-controller
+    put:
+      operationId: updateAccount
+      parameters:
+      - in: path
+        name: accountId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStudentRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AccountResponse"
+          description: OK
+      tags:
+      - account-admin-controller
+  /api/v1/admin/accounts/{accountId}/enrollments:
+    get:
+      operationId: coursesOf
+      parameters:
+      - in: path
+        name: accountId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CourseResponse"
+          description: OK
+      tags:
+      - enrollment-controller
+    post:
+      operationId: enroll
+      parameters:
+      - in: path
+        name: accountId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnrollRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CourseResponse"
+          description: OK
+      tags:
+      - enrollment-controller
+  /api/v1/admin/accounts/{accountId}/enrollments/{courseId}:
+    delete:
+      operationId: drop
+      parameters:
+      - in: path
+        name: accountId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: OK
+      tags:
+      - enrollment-controller
+  /api/v1/admin/accounts/{accountId}/purge:
+    post:
+      operationId: purgeAccount
+      parameters:
+      - in: path
+        name: accountId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurgeAccountRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+      tags:
+      - account-admin-controller
+  /api/v1/admin/accounts/{accountId}/restore:
+    post:
+      operationId: restoreAccount
+      parameters:
+      - in: path
+        name: accountId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AccountResponse"
+          description: OK
+      tags:
+      - account-admin-controller
+  /api/v1/admin/accounts/{accountId}/role:
+    put:
+      operationId: changeRole
+      parameters:
+      - in: path
+        name: accountId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeRoleRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AccountResponse"
+          description: OK
+      tags:
+      - account-admin-controller
+  /api/v1/admin/accounts/{accountId}/unlock-login:
+    post:
+      operationId: unlockLogin
+      parameters:
+      - in: path
+        name: accountId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: OK
+      tags:
+      - account-admin-controller
+  /api/v1/admin/courses:
+    post:
+      operationId: create_3
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CourseRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CourseResponse"
+          description: OK
+      tags:
+      - course-admin-controller
+  /api/v1/admin/courses/{courseId}:
+    delete:
+      operationId: delete_2
+      parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: OK
+      tags:
+      - course-admin-controller
+    put:
+      operationId: update_2
+      parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CourseRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CourseResponse"
+          description: OK
+      tags:
+      - course-admin-controller
+  /api/v1/admin/imports:
+    post:
+      operationId: upload
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+              - file
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ImportAcceptedResponse"
+          description: OK
+      tags:
+      - import-admin-controller
+  /api/v1/admin/ip-allocations:
+    get:
+      operationId: list_2
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IpAllocationResponse"
+          description: OK
+      tags:
+      - ip-allocation-admin-controller
+    post:
+      operationId: create_2
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IpAllocationRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/IpAllocationResponse"
+          description: OK
+      tags:
+      - ip-allocation-admin-controller
+  /api/v1/admin/ip-allocations/{ipAllocationId}:
+    delete:
+      operationId: delete_4
+      parameters:
+      - in: path
+        name: ipAllocationId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: OK
+      tags:
+      - ip-allocation-admin-controller
+  /api/v1/admin/ip-rules:
+    get:
+      operationId: list_1
+      parameters:
+      - in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PageResponseIpDenyRuleResponse"
+          description: OK
+      tags:
+      - ip-deny-rule-admin-controller
+    post:
+      operationId: create_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IpDenyRuleRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/IpDenyRuleResponse"
+          description: OK
+      tags:
+      - ip-deny-rule-admin-controller
+  /api/v1/admin/ip-rules/{ipRuleId}:
+    delete:
+      operationId: delete_1
+      parameters:
+      - in: path
+        name: ipRuleId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: OK
+      tags:
+      - ip-deny-rule-admin-controller
+    get:
+      operationId: get_1
+      parameters:
+      - in: path
+        name: ipRuleId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/IpDenyRuleResponse"
+          description: OK
+      tags:
+      - ip-deny-rule-admin-controller
+    put:
+      operationId: update_1
+      parameters:
+      - in: path
+        name: ipRuleId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IpDenyRuleRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/IpDenyRuleResponse"
+          description: OK
+      tags:
+      - ip-deny-rule-admin-controller
+  /api/v1/admin/job-logs:
+    delete:
+      operationId: delete_3
+      parameters:
+      - in: query
+        name: ids
+        required: true
+        schema:
+          type: array
+          items:
+            type: integer
+            format: int64
+            exclusiveMinimum: 0
+          maxItems: 500
+          minItems: 1
+      responses:
+        "200":
+          description: OK
+      tags:
+      - job-log-admin-controller
+    get:
+      operationId: list_4
+      parameters:
+      - in: query
+        name: status
+        required: false
+        schema:
+          type: string
+          enum:
+          - SUCCEEDED
+          - PARTIAL
+          - FAILED
+      - in: query
+        name: from
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: to
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: file
+        required: false
+        schema:
+          type: string
+          maxLength: 100
+          minLength: 0
+          pattern: "^[^\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Cs}]*$"
+      - in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+          maximum: 100
+          minimum: 1
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+          maxLength: 32
+          minLength: 0
+      - in: query
+        name: direction
+        required: false
+        schema:
+          type: string
+          maxLength: 4
+          minLength: 0
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PageResponseJobLogResponse"
+          description: OK
+      tags:
+      - job-log-admin-controller
+  /api/v1/admin/job-logs/{jobLogId}/entries:
+    get:
+      operationId: entries
+      parameters:
+      - in: path
+        name: jobLogId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      - in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PageResponseJobLogEntryResponse"
+          description: OK
+      tags:
+      - job-log-admin-controller
+  /api/v1/admin/security-events:
+    get:
+      operationId: list_3
+      parameters:
+      - in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PageResponseSecurityEventResponse"
+          description: OK
+      tags:
+      - security-event-admin-controller
+  /api/v1/admin/webhooks:
+    get:
+      operationId: list
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebhookResponse"
+          description: OK
+      tags:
+      - webhook-admin-controller
+    post:
+      operationId: create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/WebhookCreatedResponse"
+          description: OK
+      tags:
+      - webhook-admin-controller
+  /api/v1/admin/webhooks/{webhookId}:
+    delete:
+      operationId: delete
+      parameters:
+      - in: path
+        name: webhookId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: OK
+      tags:
+      - webhook-admin-controller
+    get:
+      operationId: get
+      parameters:
+      - in: path
+        name: webhookId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/WebhookResponse"
+          description: OK
+      tags:
+      - webhook-admin-controller
+    put:
+      operationId: update
+      parameters:
+      - in: path
+        name: webhookId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/WebhookResponse"
+          description: OK
+      tags:
+      - webhook-admin-controller
+  /api/v1/admin/webhooks/{webhookId}/deliveries:
+    get:
+      operationId: deliveries
+      parameters:
+      - in: path
+        name: webhookId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      - in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PageResponseWebhookDeliveryResponse"
+          description: OK
+      tags:
+      - webhook-admin-controller
+  /api/v1/admin/webhooks/{webhookId}/test:
+    post:
+      operationId: sendTest
+      parameters:
+      - in: path
+        name: webhookId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TestDeliveryResponse"
+          description: OK
+      tags:
+      - webhook-admin-controller
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+          description: OK
+      tags:
+      - auth-controller
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      parameters:
+      - in: cookie
+        name: educore_rt
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+      tags:
+      - auth-controller
+  /api/v1/auth/me:
+    get:
+      operationId: me
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UserView"
+          description: OK
+      tags:
+      - auth-controller
+  /api/v1/auth/password:
+    post:
+      operationId: changePassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordChangeRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+          description: OK
+      tags:
+      - auth-controller
+  /api/v1/auth/refresh:
+    post:
+      operationId: refresh
+      parameters:
+      - in: cookie
+        name: educore_rt
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+          description: OK
+      tags:
+      - auth-controller
+  /api/v1/courses:
+    get:
+      operationId: catalog
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CourseResponse"
+          description: OK
+      tags:
+      - course-controller
+  /api/v1/me:
+    delete:
+      operationId: requestDeletion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteAccountRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DeletionScheduledResponse"
+          description: OK
+      tags:
+      - me-controller
+    get:
+      operationId: profile
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+          description: OK
+      tags:
+      - me-controller
+    put:
+      operationId: updateProfile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+          description: OK
+      tags:
+      - me-controller
+  /api/v1/me/enrollments:
+    get:
+      operationId: myCourses
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CourseResponse"
+          description: OK
+      tags:
+      - enrollment-controller
+    post:
+      operationId: enrollMe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnrollRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CourseResponse"
+          description: OK
+      tags:
+      - enrollment-controller
+  /api/v1/me/enrollments/{courseId}:
+    delete:
+      operationId: dropMine
+      parameters:
+      - in: path
+        name: courseId
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: OK
+      tags:
+      - enrollment-controller
+  /api/v1/me/export:
+    get:
+      operationId: export
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AccountExport"
+          description: OK
+      tags:
+      - me-controller
+  /api/v1/me/restore:
+    post:
+      operationId: restore
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestoreAccountRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+          description: OK
+      tags:
+      - me-controller
+  /api/v1/public/courses:
+    get:
+      operationId: courses
+      parameters:
+      - in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+          maximum: 100
+          minimum: 1
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+          maxLength: 20
+          minLength: 0
+      - in: query
+        name: direction
+        required: false
+        schema:
+          type: string
+          maxLength: 4
+          minLength: 0
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PageResponsePublicCourseResponse"
+          description: OK
+      tags:
+      - public-api-controller
+  /api/v1/public/courses/{slug}:
+    get:
+      operationId: course
+      parameters:
+      - in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PublicCourseResponse"
+          description: OK
+      tags:
+      - public-api-controller
+  /api/v1/public/site-facts:
+    get:
+      operationId: siteFacts
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SiteFactsResponse"
+          description: OK
+      tags:
+      - public-api-controller
+  /api/v1/weather:
+    get:
+      operationId: getWeather
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CityWeather"
+          description: OK
+      tags:
+      - weather-controller
+  /sitemap-courses-{file}.xml:
+    get:
+      operationId: sitemapFile
+      parameters:
+      - in: path
+        name: file
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/xml:
+              schema:
+                type: string
+            text/xml:
+              schema:
+                type: string
+          description: OK
+      tags:
+      - sitemap-controller
+  /sitemap.xml:
+    get:
+      operationId: sitemap
+      responses:
+        "200":
+          content:
+            application/xml:
+              schema:
+                type: string
+            text/xml:
+              schema:
+                type: string
+          description: OK
+      tags:
+      - sitemap-controller
+components:
+  schemas:
+    AccountExport:
+      type: object
+      properties:
+        enrollments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Enrollment"
+        exportedAt:
+          type: string
+          format: date-time
+        format:
+          type: string
+        profile:
+          $ref: "#/components/schemas/Profile"
+        securityEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+        securityEventsTruncated:
+          type: boolean
+    AccountResponse:
+      type: object
+      properties:
+        deleteAfter:
+          type: string
+          format: date-time
+        firstName:
+          type: string
+        id:
+          type: integer
+          format: int64
+        ipAddress:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum:
+          - ADMIN
+          - USER
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - DEACTIVATED
+          - PENDING_DELETION
+          - DELETED
+        studentNumber:
+          type: string
+        username:
+          type: string
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        expiresIn:
+          type: integer
+          format: int64
+        user:
+          $ref: "#/components/schemas/UserView"
+    ChangeRoleRequest:
+      type: object
+      properties:
+        role:
+          type: string
+          enum:
+          - ADMIN
+          - USER
+      required:
+      - role
+    CityWeather:
+      type: object
+      properties:
+        city:
+          type: string
+        description:
+          type: string
+        observedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+          - OK
+          - STALE
+          - UNAVAILABLE
+        temperature:
+          type: number
+          format: double
+        weatherCode:
+          type: integer
+          format: int32
+        windSpeed:
+          type: number
+          format: double
+    CourseRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          maxLength: 1000
+          minLength: 0
+          pattern: "^[^\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Cs}]*$"
+        instructor:
+          type: string
+          maxLength: 100
+          minLength: 0
+          pattern: "^[^\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Cs}]*$"
+        name:
+          type: string
+          maxLength: 150
+          minLength: 0
+          pattern: "^[^\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Cs}]*$"
+        published:
+          type: boolean
+        slug:
+          type: string
+          maxLength: 80
+          minLength: 0
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        term:
+          type: string
+          maxLength: 50
+          minLength: 0
+          pattern: "^[^\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Cs}]*$"
+      required:
+      - name
+    CourseResponse:
+      type: object
+      properties:
+        description:
+          type: string
+        id:
+          type: integer
+          format: int64
+        instructor:
+          type: string
+        name:
+          type: string
+        published:
+          type: boolean
+        slug:
+          type: string
+        term:
+          type: string
+    CreateStudentRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+          minLength: 0
+          pattern: "^$|^[\\p{L}][\\p{L}\\p{M} '.\\-]*$"
+        ipAddress:
+          type: string
+          maxLength: 15
+          minLength: 0
+          pattern: "^$|^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\\
+            .(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$"
+        lastName:
+          type: string
+          maxLength: 100
+          minLength: 0
+          pattern: "^$|^[\\p{L}][\\p{L}\\p{M} '.\\-]*$"
+        studentNumber:
+          type: string
+          pattern: "^$|^[0-9]{4,12}$"
+        username:
+          type: string
+          maxLength: 100
+          minLength: 0
+          pattern: "^$|^[\\p{L}\\p{N}._\\-]{3,100}$"
+      required:
+      - firstName
+    CreatedStudentResponse:
+      type: object
+      properties:
+        firstName:
+          type: string
+        id:
+          type: integer
+          format: int64
+        ipAddress:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum:
+          - ADMIN
+          - USER
+        studentNumber:
+          type: string
+        temporaryPassword:
+          type: string
+        username:
+          type: string
+    DeleteAccountRequest:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+          maxLength: 128
+          minLength: 0
+      required:
+      - currentPassword
+    DeletionScheduledResponse:
+      type: object
+      properties:
+        deleteAfter:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - DEACTIVATED
+          - PENDING_DELETION
+          - DELETED
+    EnrollRequest:
+      type: object
+      properties:
+        courseId:
+          type: integer
+          format: int64
+      required:
+      - courseId
+    Enrollment:
+      type: object
+      properties:
+        courseId:
+          type: integer
+          format: int64
+        courseName:
+          type: string
+        enrolledAt:
+          type: string
+          format: date-time
+        instructor:
+          type: string
+        term:
+          type: string
+    Event:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        involvement:
+          type: string
+        ip:
+          type: string
+        type:
+          type: string
+          enum:
+          - AUTH_LOGIN_SUCCESS
+          - AUTH_LOGIN_FAILURE
+          - AUTH_LOCKED
+          - AUTH_REFRESH_REUSE
+          - PASSWORD_CHANGED
+          - ACCOUNT_CREATED
+          - ACCOUNT_UPDATED
+          - ACCOUNT_DELETED
+          - ACCOUNT_DELETION_REQUESTED
+          - ACCOUNT_RESTORED
+          - ACCOUNT_PURGED
+          - DATA_EXPORTED
+          - ACCOUNT_LOGIN_UNLOCKED
+          - ROLE_CHANGED
+          - ENROLLMENT_CHANGED
+          - COURSE_CHANGED
+          - IP_RULE_CHANGED
+          - IP_ALLOCATION_CHANGED
+          - JOB_LOGS_DELETED
+          - IMPORT_UPLOADED
+          - WEBHOOK_CHANGED
+          - WEBHOOK_TEST_REQUESTED
+    ImportAcceptedResponse:
+      type: object
+      properties:
+        inboxFileName:
+          type: string
+        kind:
+          type: string
+          enum:
+          - STUDENTS
+          - COURSES
+        rows:
+          type: integer
+          format: int32
+        sha256:
+          type: string
+        size:
+          type: integer
+          format: int64
+    IpAllocationRequest:
+      type: object
+      properties:
+        originalValue:
+          type: string
+          maxLength: 31
+          minLength: 0
+          pattern: "^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\\
+            .(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(-(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\\
+            .(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\\
+            .(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])|/(3[0-2]|[12]?[0-9]))?$"
+        type:
+          type: string
+          enum:
+          - STATIC
+          - RANGE
+          - CIDR
+      required:
+      - originalValue
+      - type
+    IpAllocationResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        originalValue:
+          type: string
+        type:
+          type: string
+    IpDenyRuleRequest:
+      type: object
+      properties:
+        expiresAt:
+          type: string
+          format: date-time
+        kind:
+          type: string
+          enum:
+          - STATIC
+          - RANGE
+          - CIDR
+        reason:
+          type: string
+          maxLength: 200
+          minLength: 0
+          pattern: "^[^\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Cs}]*$"
+        value:
+          type: string
+          maxLength: 43
+          minLength: 0
+          pattern: "^[0-9A-Fa-f.:/\\-]+$"
+      required:
+      - kind
+      - value
+    IpDenyRuleResponse:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: integer
+          format: int64
+        endIp:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        id:
+          type: integer
+          format: int64
+        kind:
+          type: string
+          enum:
+          - STATIC
+          - RANGE
+          - CIDR
+        reason:
+          type: string
+        source:
+          type: string
+          enum:
+          - MANUAL
+          - AUTO
+        startIp:
+          type: string
+        value:
+          type: string
+    JobLogEntryResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        level:
+          type: string
+          enum:
+          - INFO
+          - WARN
+          - ERROR
+        rawMasked:
+          type: string
+        reason:
+          type: string
+        rowNumber:
+          type: integer
+          format: int32
+    JobLogResponse:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        entityType:
+          type: string
+        failedRecords:
+          type: integer
+          format: int32
+        fileName:
+          type: string
+        finishedAt:
+          type: string
+          format: date-time
+        id:
+          type: integer
+          format: int64
+        importedFileId:
+          type: integer
+          format: int64
+        readRecords:
+          type: integer
+          format: int32
+        reason:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+          - SUCCEEDED
+          - PARTIAL
+          - FAILED
+        successfulRecords:
+          type: integer
+          format: int32
+    LoginRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          maxLength: 128
+          minLength: 0
+        username:
+          type: string
+          maxLength: 255
+          minLength: 0
+          pattern: "^[^\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Cs}]*$"
+      required:
+      - password
+      - username
+    PageResponseAccountResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountResponse"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    PageResponseIpDenyRuleResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/IpDenyRuleResponse"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    PageResponseJobLogEntryResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobLogEntryResponse"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    PageResponseJobLogResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobLogResponse"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    PageResponsePublicCourseResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicCourseResponse"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    PageResponseSecurityEventResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/SecurityEventResponse"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    PageResponseWebhookDeliveryResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookDeliveryResponse"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    PasswordChangeRequest:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+          maxLength: 128
+          minLength: 0
+        newPassword:
+          type: string
+          maxLength: 1024
+          minLength: 0
+      required:
+      - currentPassword
+      - newPassword
+    Profile:
+      type: object
+      properties:
+        firstName:
+          type: string
+        id:
+          type: integer
+          format: int64
+        ipAddress:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum:
+          - ADMIN
+          - USER
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - DEACTIVATED
+          - PENDING_DELETION
+          - DELETED
+        studentNumber:
+          type: string
+        username:
+          type: string
+    ProfileResponse:
+      type: object
+      properties:
+        deleteAfter:
+          type: string
+          format: date-time
+        firstName:
+          type: string
+        id:
+          type: integer
+          format: int64
+        lastName:
+          type: string
+        role:
+          type: string
+          enum:
+          - ADMIN
+          - USER
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - DEACTIVATED
+          - PENDING_DELETION
+          - DELETED
+        studentNumber:
+          type: string
+        username:
+          type: string
+    PublicCourseResponse:
+      type: object
+      properties:
+        description:
+          type: string
+        instructor:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        term:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+    PurgeAccountRequest:
+      type: object
+      properties:
+        confirm:
+          type: string
+          maxLength: 255
+          minLength: 0
+      required:
+      - confirm
+    RestoreAccountRequest:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+          maxLength: 128
+          minLength: 0
+      required:
+      - currentPassword
+    SecurityEventResponse:
+      type: object
+      properties:
+        actorAccountId:
+          type: integer
+          format: int64
+        actorPseudonym:
+          type: string
+        at:
+          type: string
+          format: date-time
+        details:
+          type: object
+          additionalProperties: {}
+        id:
+          type: integer
+          format: int64
+        ip:
+          type: string
+        requestId:
+          type: string
+        targetAccountId:
+          type: integer
+          format: int64
+        targetPseudonym:
+          type: string
+        type:
+          type: string
+          enum:
+          - AUTH_LOGIN_SUCCESS
+          - AUTH_LOGIN_FAILURE
+          - AUTH_LOCKED
+          - AUTH_REFRESH_REUSE
+          - PASSWORD_CHANGED
+          - ACCOUNT_CREATED
+          - ACCOUNT_UPDATED
+          - ACCOUNT_DELETED
+          - ACCOUNT_DELETION_REQUESTED
+          - ACCOUNT_RESTORED
+          - ACCOUNT_PURGED
+          - DATA_EXPORTED
+          - ACCOUNT_LOGIN_UNLOCKED
+          - ROLE_CHANGED
+          - ENROLLMENT_CHANGED
+          - COURSE_CHANGED
+          - IP_RULE_CHANGED
+          - IP_ALLOCATION_CHANGED
+          - JOB_LOGS_DELETED
+          - IMPORT_UPLOADED
+          - WEBHOOK_CHANGED
+          - WEBHOOK_TEST_REQUESTED
+    SiteFactsResponse:
+      type: object
+      properties:
+        baseUrl:
+          type: string
+        dateModified:
+          type: string
+          format: date-time
+        description:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+        name:
+          type: string
+    TestDeliveryResponse:
+      type: object
+      properties:
+        deliveryId:
+          type: string
+          format: uuid
+    UpdateProfileRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+          minLength: 0
+          pattern: "^$|^[\\p{L}][\\p{L}\\p{M} '.\\-]*$"
+        lastName:
+          type: string
+          maxLength: 100
+          minLength: 0
+          pattern: "^$|^[\\p{L}][\\p{L}\\p{M} '.\\-]*$"
+      required:
+      - firstName
+      - lastName
+    UpdateStudentRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+          minLength: 0
+          pattern: "^$|^[\\p{L}][\\p{L}\\p{M} '.\\-]*$"
+        ipAddress:
+          type: string
+          maxLength: 15
+          minLength: 0
+          pattern: "^$|^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\\
+            .(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$"
+        lastName:
+          type: string
+          maxLength: 100
+          minLength: 0
+          pattern: "^$|^[\\p{L}][\\p{L}\\p{M} '.\\-]*$"
+        studentNumber:
+          type: string
+          pattern: "^$|^[0-9]{4,12}$"
+      required:
+      - firstName
+    UserView:
+      type: object
+      properties:
+        firstName:
+          type: string
+        id:
+          type: integer
+          format: int64
+        mustChangePassword:
+          type: boolean
+        role:
+          type: string
+        status:
+          type: string
+    WebhookCreatedResponse:
+      type: object
+      properties:
+        secret:
+          type: string
+        webhook:
+          $ref: "#/components/schemas/WebhookResponse"
+    WebhookDeliveryResponse:
+      type: object
+      properties:
+        attempt:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+        deliveredAt:
+          type: string
+          format: date-time
+        event:
+          type: string
+        id:
+          type: string
+          format: uuid
+        lastError:
+          type: string
+        nextAttemptAt:
+          type: string
+          format: date-time
+        responseCode:
+          type: integer
+          format: int32
+        status:
+          type: string
+          enum:
+          - PENDING
+          - DELIVERED
+          - FAILED
+    WebhookRequest:
+      type: object
+      properties:
+        active:
+          type: boolean
+        events:
+          type: array
+          items:
+            type: string
+            pattern: ^(import\.completed|import\.failed|course\.updated|account\.deleted)$
+          maxItems: 4
+          minItems: 0
+        url:
+          type: string
+          maxLength: 2048
+          minLength: 0
+      required:
+      - events
+      - url
+    WebhookResponse:
+      type: object
+      properties:
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: integer
+          format: int64
+        droppedEvents:
+          type: integer
+          format: int64
+        events:
+          type: array
+          items:
+            type: string
+        id:
+          type: integer
+          format: int64
+        updatedAt:
+          type: string
+          format: date-time
+        url:
+          type: string
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
