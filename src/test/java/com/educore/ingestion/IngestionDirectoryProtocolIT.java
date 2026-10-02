@@ -76,6 +76,8 @@ class IngestionDirectoryProtocolIT extends IngestionIntegrationSupport {
         assertThat(directories.inbox().resolve(name)).doesNotExist();
         // The run is closed before the snapshot is deleted: wait for the folder, not for a fixed time.
         awaitFiles(directories.processing(), token, 0, TIMEOUT);
+        awaitFiles(directories.done(), token, 0, TIMEOUT);
+        awaitFiles(directories.failed(), token, 0, TIMEOUT);
         assertThat(filesContaining(directories.done(), token)).isEmpty();
         assertThat(filesContaining(directories.failed(), token)).isEmpty();
         assertThat(importedFileRepository.findById(log.getImportedFileId())).get()
