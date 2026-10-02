@@ -1,0 +1,31 @@
+# Hand-written SQL-injection and sort/property-enumeration payloads for SortInjectionIT and search probes.
+# One payload per non-comment line. Leading/trailing spaces are significant and intentional on some lines,
+# so lines are read verbatim (comments and blank lines skipped). Kept deliberately small (no wordlists).
+# Expected defence: the sort whitelist rejects unknown keys with 400 sort/invalid; search treats these as
+# literal text (no SQL executed, no 500, no property enumeration), paging bounds reject extremes with 400.
+id; DROP TABLE account--
+id);DROP TABLE account;--
+password
+account.password
+a.password
+id,password
+id asc, password desc
+(select password from account limit 1)
+id/**/union/**/select/**/password/**/from/**/account
+' OR '1'='1
+" OR "1"="1
+1' OR '1'='1'--
+'; SELECT pg_sleep(5)--
+%27%20OR%20%271%27%3D%271
+id); UPDATE account SET role='ADMIN'--
+firstName'||(SELECT password FROM account)||'
+../../password
+role
+status
+version
+deleted
+hibernateLazyInitializer
+new java.lang.Runtime()
+T(java.lang.Runtime).getRuntime()
+${7*7}
+#{7*7}
