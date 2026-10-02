@@ -16,6 +16,11 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
     @Query("SELECT e.course FROM Enrollment e WHERE e.account.id = :accountId ORDER BY e.course.name")
     List<Course> findCoursesByAccountId(@Param("accountId") Long accountId);
 
+    /** The account's enrollments with their courses, oldest first (data export). */
+    @Query("SELECT e FROM Enrollment e JOIN FETCH e.course WHERE e.account.id = :accountId "
+            + "ORDER BY e.enrollmentDate, e.id")
+    List<Enrollment> findWithCourseByAccountId(@Param("accountId") Long accountId);
+
     boolean existsByAccountIdAndCourseId(Long accountId, Long courseId);
 
     @Modifying

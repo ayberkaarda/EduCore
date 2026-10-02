@@ -6,4 +6,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface CourseRepository extends JpaRepository<Course, Long> {
     java.util.Optional<Course> findByName(String name); // YENİ: İsim kontrolü için
+
+    boolean existsBySlug(String slug);
+
+    boolean existsBySlugAndIdNot(String slug, Long id);
 }

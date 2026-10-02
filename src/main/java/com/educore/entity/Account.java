@@ -7,6 +7,8 @@ import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
@@ -42,16 +44,32 @@ public class Account implements UserDetails {
     private String ipAddress;
 
     // Optimistic lock: every entity update checks and increments it, so a write based on a stale read fails
-    // (ObjectOptimisticLockingFailureException) instead of overwriting a newer role or deleted flag.
+    // (ObjectOptimisticLockingFailureException) instead of overwriting a newer role or status.
     // Null for an account that has not been persisted yet.
     @JsonIgnore
     @Version
     private Long version;
 
-    // Builder kullanıldığında 0 değerinin ezilmemesi için eklendi
+    /** Lifecycle state (V21); only {@link AccountStatus#ACTIVE} accounts have full access. */
     @Builder.Default
-    @Column(nullable = false, columnDefinition = "int default 0")
-    private Integer deleted = 0;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    private AccountStatus status = AccountStatus.ACTIVE;
+
+    /** When the account left {@code ACTIVE}; {@code null} while active. */
+    private Instant deletedAt;
+
+    /** End of the grace period of a {@code PENDING_DELETION} account; {@code null} otherwise. */
+    private Instant deleteAfter;
+
+    /**
+     * Session epoch (V22): copied into every access token ({@code sep} claim) and compared on every request, so
+     * incrementing it ends every access token issued before (deletion request, soft delete, restore).
+     */
+    @JsonIgnore
+    @Builder.Default
+    @Column(nullable = false)
+    private int sessionEpoch = 0;
 
     // Set for accounts whose initial password was supplied by an operator (e.g. the bootstrap ADMIN).
     // Not exposed through the API yet: ignored for JSON input and output.
@@ -60,20 +78,12 @@ public class Account implements UserDetails {
     @Column(nullable = false)
     private boolean mustChangePassword = false;
 
-    // Veritabanına kaydetmeden hemen önce son güvenlik kontrolü
+    // Last check before the insert: an account built without a status starts ACTIVE.
     @PrePersist
     protected void onCreate() {
-        if (this.deleted == null) {
-            this.deleted = 0;
+        if (this.status == null) {
+            this.status = AccountStatus.ACTIVE;
         }
-    }
-
-    public Integer getDeleted() {
-        return deleted;
-    }
-
-    public void setDeleted(Integer deleted) {
-        this.deleted = deleted;
     }
 
     @Override
