@@ -5,7 +5,7 @@
 #
 # The PostgreSQL major version of the client must be >= the server's (compose runs postgres:15).
 # Base image pinned by digest (postgres:15-alpine); Dependabot proposes digest updates weekly.
-FROM postgres:15-alpine@sha256:f7d23353e1b15400d22ebe31189f4d314b87a4c129cc400c8c2d8d4ca127bf81
+FROM postgres:16-alpine@sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36
 
 # supercronic and rclone come from Alpine packages (rebuilt by Alpine with a current Go toolchain).
 # gosu is removed: the base image ships it for its root-to-postgres step-down in docker-entrypoint.sh,
