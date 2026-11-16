@@ -59,7 +59,7 @@ services:
 
   certbot:
     profiles: ["certbot"]
-    image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
+    image: certbot/certbot:v5.10.0@sha256:c5698da859429ccee0fcc299a8000368198222d1f9e789ab6e388b491e8ce06d
     container_name: educore-certbot
     restart: unless-stopped
     entrypoint: ["/bin/sh", "/opt/educore/certbot-entrypoint.sh"]
