@@ -21,7 +21,7 @@ x-logging: &default-logging
 
 services:
   postgres-db:
-    image: postgres:15@sha256:724292da1f2e50bdccfc3302ce75bbba7f4a6076701b588cc795fcac65683550
+    image: postgres:19@sha256:bb6e70add742cd868fb62cb3b2f67d1dd2bdd2b65a521e778420748753687c60
     container_name: educore-postgres
     restart: always
     environment:
